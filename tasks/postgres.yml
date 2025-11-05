@@ -1,0 +1,31 @@
+- name: "install PostgreSQL"
+  import_role:
+    name: cesnet.postgresql_kubernetes
+  vars:
+    cnpg_cluster_name: perun-db
+    cnpg_cluster_image: "cerit.io/makub/postgresql:18.0-standard-trixie"
+    cnpg_cluster_db_name: perun
+    cnpg_cluster_db_owner: perun
+    cnpg_cluster_db_parameters:
+      encoding: UTF8
+      localeCType: en_US.UTF-8
+      localeCollate: en_US.UTF-8
+    cnpg_cluster_postgresql_timezone: "Europe/Prague"
+    cnpg_cluster_storage_size: 40Gi
+    cnpg_cluster_wal_keep_size: 5GB
+    cnpg_cluster_requests_mem: 4Gi
+    cnpg_cluster_requests_cpu: 1
+    cnpg_cluster_limits_mem: 6Gi
+    cnpg_cluster_limits_cpu: 1
+    cnpg_sidecar_requests_mem: 2Gi
+    cnpg_sidecar_requests_cpu: 500m
+    cnpg_sidecar_limits_mem: 3Gi
+    cnpg_sidecar_limits_cpu: 1
+    cnpg_cluster_retention_policy: 5d
+    cnpg_cluster_instances: 3
+    cnpg_cluster_s3_bucket: perun-backups
+    cnpg_cluster_synchronous:
+      method: any
+      number: 1
+      dataDurability: preferred
+

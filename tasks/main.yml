@@ -1,0 +1,32 @@
+---
+- name: "Ansible core version check ({{ ansible_version.full }})"
+  ansible.builtin.assert:
+    that:
+      - ansible_version is defined
+      - ansible_version.full is version_compare('2.19', '>=')
+    fail_msg: "Required version is 2.19, this is {{ ansible_version.full }}"
+    quiet: true
+  tags: always
+
+- name: "Collection community.general version check ({{ lookup('community.general.collection_version', 'community.general') }})"
+  ansible.builtin.assert:
+    that:
+      - lookup('community.general.collection_version', 'community.general') is version('11.4','>=')
+    fail_msg: "Required version is 11.4, this is {{lookup('community.general.collection_version', 'community.general') }}"
+    quiet: true
+  tags: always
+
+- name: "check k8s_context and k8s_namespace"
+  ansible.builtin.assert:
+    that:
+      - k8s_context is defined
+      - k8s_namespace is defined
+  tags: always
+
+- name: "Cloud Native PostGres setup"
+  include_tasks:
+    file: postgres.yml
+    apply:
+      tags:
+        - postgres
+  tags: postgres
