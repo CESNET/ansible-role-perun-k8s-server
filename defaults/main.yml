@@ -1,0 +1,33 @@
+# must define:
+  # perun_cnpg_cluster_s3_bucket:
+  # perun_cnpg_cluster_user_password:
+  # perun_cnpg_cluster_pgwatch_user_password:
+  # perun_cnpg_cluster_aws_access_key_id:
+  # perun_cnpg_cluster_aws_secret_access_key:
+# sensible defaults
+perun_cnpg_cluster_external_hostname: "perundb.{{ k8s_namespace }}.dyn.cloud.e-infra.cz"
+perun_cnpg_cluster_image: "ghcr.io/cloudnative-pg/postgresql:18.1-standard-trixie"
+perun_cnpg_cluster_db_parameters:
+  encoding: UTF8
+  localeCType: en_US.UTF-8
+  localeCollate: en_US.UTF-8
+perun_cnpg_cluster_postgresql_timezone: "Europe/Prague"
+perun_cnpg_cluster_postgresql_parameters:
+  max_connections: 200
+  max_pred_locks_per_transaction: 128
+perun_cnpg_cluster_storage_size: 20Gi
+perun_cnpg_cluster_requests_mem: 2Gi
+perun_cnpg_cluster_requests_cpu: 500m
+perun_cnpg_cluster_limits_mem: 3Gi
+perun_cnpg_cluster_limits_cpu: 1
+perun_cnpg_sidecar_requests_mem: 2Gi
+perun_cnpg_sidecar_requests_cpu: 500m
+perun_cnpg_sidecar_limits_mem: 3Gi
+perun_cnpg_sidecar_limits_cpu: 1
+perun_cnpg_cluster_retention_policy: 7d
+perun_cnpg_cluster_instances: 3
+perun_cnpg_cluster_wal_keep_size: 2GB
+perun_cnpg_cluster_synchronous:
+  method: any
+  number: 1
+  dataDurability: required

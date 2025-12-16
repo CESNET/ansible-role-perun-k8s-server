@@ -1,31 +1,115 @@
+- name: "check defined variables"
+  ansible.builtin.assert:
+    that:
+      - perun_cnpg_cluster_s3_bucket is defined
+      - perun_cnpg_cluster_user_password is defined
+      - perun_cnpg_cluster_pgwatch_user_password is defined
+      - perun_cnpg_cluster_aws_access_key_id is defined
+      - perun_cnpg_cluster_aws_secret_access_key is defined
+      - perun_rpc_git_version is defined
+
 - name: "install PostgreSQL"
-  import_role:
+  ansible.builtin.import_role:
     name: cesnet.postgresql_kubernetes
   vars:
-    cnpg_cluster_name: perun-db
-    cnpg_cluster_image: "cerit.io/makub/postgresql:18.0-standard-trixie"
+    cnpg_cluster_name: perundb
     cnpg_cluster_db_name: perun
     cnpg_cluster_db_owner: perun
-    cnpg_cluster_db_parameters:
-      encoding: UTF8
-      localeCType: en_US.UTF-8
-      localeCollate: en_US.UTF-8
-    cnpg_cluster_postgresql_timezone: "Europe/Prague"
-    cnpg_cluster_storage_size: 40Gi
-    cnpg_cluster_wal_keep_size: 5GB
-    cnpg_cluster_requests_mem: 4Gi
-    cnpg_cluster_requests_cpu: 1
-    cnpg_cluster_limits_mem: 6Gi
-    cnpg_cluster_limits_cpu: 1
-    cnpg_sidecar_requests_mem: 2Gi
-    cnpg_sidecar_requests_cpu: 500m
-    cnpg_sidecar_limits_mem: 3Gi
-    cnpg_sidecar_limits_cpu: 1
-    cnpg_cluster_retention_policy: 5d
-    cnpg_cluster_instances: 3
-    cnpg_cluster_s3_bucket: perun-backups
-    cnpg_cluster_synchronous:
-      method: any
-      number: 1
-      dataDurability: preferred
+    cnpg_cluster_external_hostname: "{{ perun_cnpg_cluster_external_hostname }}"
+    cnpg_cluster_image: "{{ perun_cnpg_cluster_image}}"
+    cnpg_cluster_db_parameters: "{{ perun_cnpg_cluster_db_parameters }}"
+    cnpg_cluster_postgresql_timezone: "{{ perun_cnpg_cluster_postgresql_timezone }}"
+    cnpg_cluster_postgresql_parameters: "{{ perun_cnpg_cluster_postgresql_parameters }}"
+    cnpg_cluster_storage_size: "{{ perun_cnpg_cluster_storage_size }}"
+    cnpg_cluster_requests_mem: "{{ perun_cnpg_cluster_requests_mem }}"
+    cnpg_cluster_requests_cpu: "{{ perun_cnpg_cluster_requests_cpu }}"
+    cnpg_cluster_limits_mem: "{{ perun_cnpg_cluster_limits_mem }}"
+    cnpg_cluster_limits_cpu: "{{ perun_cnpg_cluster_limits_cpu }}"
+    cnpg_sidecar_requests_mem: "{{ perun_cnpg_sidecar_requests_mem }}"
+    cnpg_sidecar_requests_cpu: "{{ perun_cnpg_sidecar_requests_cpu }}"
+    cnpg_sidecar_limits_mem: "{{ perun_cnpg_sidecar_limits_mem }}"
+    cnpg_sidecar_limits_cpu: "{{ perun_cnpg_sidecar_limits_cpu }}"
+    cnpg_cluster_retention_policy: "{{ perun_cnpg_cluster_retention_policy }}"
+    cnpg_cluster_instances: "{{ perun_cnpg_cluster_instances }}"
+    cnpg_cluster_wal_keep_size: "{{ perun_cnpg_cluster_wal_keep_size }}"
+    cnpg_cluster_synchronous: "{{ perun_cnpg_cluster_synchronous }}"
+    cnpg_cluster_s3_bucket: "{{ perun_cnpg_cluster_s3_bucket }}"
+    cnpg_cluster_user_password: "{{ perun_cnpg_cluster_user_password }}"
+    cnpg_cluster_pgwatch_user_password: "{{ perun_cnpg_cluster_pgwatch_user_password }}"
+    cnpg_cluster_aws_access_key_id: "{{ perun_cnpg_cluster_aws_access_key_id }}"
+    cnpg_cluster_aws_secret_access_key: "{{ perun_cnpg_cluster_aws_secret_access_key }}"
 
+- name: "detect whether table users exists in perun database"
+  community.postgresql.postgresql_query:
+    login_user: perun
+    login_host: "{{ perun_cnpg_cluster_external_hostname }}"
+    login_password: "{{ perun_cnpg_cluster_user_password }}"
+    ssl_mode: require
+    login_db: perun
+    query: "SELECT EXISTS ( SELECT 1 FROM information_schema.tables WHERE table_schema = 'perun' AND table_name = 'users' )"
+  register: table_users
+
+- name: "download SQL script for creating tables"
+  ansible.builtin.get_url:
+    url: "https://gitlab.ics.muni.cz/perun/perun-idm/perun/-/raw/{{ perun_rpc_git_version }}/perun-db/postgres.sql"
+    dest: /tmp/postgres.sql
+  when: not table_users.query_result[0].exists
+
+- name: "create perun tables"
+  community.postgresql.postgresql_script:
+    login_user: perun
+    login_host: "{{ perun_cnpg_cluster_external_hostname }}"
+    login_password: "{{ perun_cnpg_cluster_user_password }}"
+    ssl_mode: require
+    login_db: perun
+    path: /tmp/postgres.sql
+    encoding: UTF-8
+  when: not table_users.query_result[0].exists
+
+- name: "detect whether user nagios exists"
+  community.postgresql.postgresql_query:
+    login_user: perun
+    login_host: "{{ perun_cnpg_cluster_external_hostname }}"
+    login_password: "{{ perun_cnpg_cluster_user_password }}"
+    ssl_mode: require
+    login_db: perun
+    query: "SELECT EXISTS ( SELECT 1 FROM users WHERE first_name='(Service)' and last_name='nagios' and service_acc)"
+  register: user_nagios
+
+- name: "create user nagios"
+  community.postgresql.postgresql_query:
+    login_user: perun
+    login_host: "{{ perun_cnpg_cluster_external_hostname }}"
+    login_password: "{{ perun_cnpg_cluster_user_password }}"
+    ssl_mode: require
+    login_db: perun
+    query: "insert into users (id, first_name, last_name, service_acc) values (nextval('users_id_seq'),'(Service)','nagios',true)"
+  when: not user_nagios.query_result[0].exists
+
+- name: "detect whether ues for nagios exists"
+  community.postgresql.postgresql_query:
+    login_user: perun
+    login_host: "{{ perun_cnpg_cluster_external_hostname }}"
+    login_password: "{{ perun_cnpg_cluster_user_password }}"
+    ssl_mode: require
+    login_db: perun
+    query: "SELECT EXISTS ( select ues.id from user_ext_sources ues join ext_sources e on (ues.ext_sources_id=e.id) where ues.login_ext='nagios' and e.name='INTERNAL' )"
+  register: ues_nagios
+
+- name: "create user_ext_source nagios"
+  community.postgresql.postgresql_query:
+    login_user: perun
+    login_host: "{{ perun_cnpg_cluster_external_hostname }}"
+    login_password: "{{ perun_cnpg_cluster_user_password }}"
+    ssl_mode: require
+    login_db: perun
+    query: >-
+      insert into user_ext_sources (id, user_id, login_ext, ext_sources_id, loa)
+      values (
+       nextval('user_ext_sources_id_seq'),
+       ( select id from users where first_name='(Service)' and last_name='nagios' and service_acc ),
+       'nagios',
+       ( select id from ext_sources where name='INTERNAL' ),
+       2
+      )
+  when: not ues_nagios.query_result[0].exists
