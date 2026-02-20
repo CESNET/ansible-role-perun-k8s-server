@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: perun-rpc
+  name: "perun-rpc-deployment"
+  namespace: "{{ k8s_namespace }}"
+  annotations:
+    field.cattle.io/description: "the Perun RPC"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: perun-rpc
+  template:
+    metadata:
+      annotations:
+        field.cattle.io/description: "a perun-rpc pod"
+      labels:
+        app: perun-rpc
+    spec:
+      # Pod security context
+      securityContext:
+        fsGroupChangePolicy: OnRootMismatch
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      # list of containers
+      containers:
+        - name: "perun-rpc-container"
+          image: "debian:latest"
+          # sleep forever
+          command: [ "/bin/bash", "-c" ]
+          args: [ "sleep infinity" ]
+          imagePullPolicy: Always
+          # Container security context
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ "ALL" ]
+          # environment variables
+          env:
+            # set timezone
+            - name: TZ
+              value: "Europe/Prague"
+            # HTTP proxy
+            - name: JAVA_TOOL_OPTIONS
+              value: "-Dhttp.proxyHost=proxy.muni.cz -Dhttp.proxyPort=3128"
+          # limits on CPU and memory
+          resources:
+            requests:
+              cpu: "{{ perun_rpc_requests_cpu }}"
+              memory: "{{ perun_rpc_requests_mem }}"
+            limits:
+              cpu: "{{ perun_rpc_limits_cpu }}"
+              memory: "{{ perun_rpc_limits_mem }}"
+            # probes
+            #                  readinessProbe:
+            #                      httpGet:
+            #                          path: /actuator/health/readiness
+            #                          port: 8081
+            #                  livenessProbe:
+            #                      httpGet:
+            #                          path: /actuator/health/liveness
+            #                          port: 8081
+          # mounted volumes
+          volumeMounts:
+            - name: tmp-volume
+              mountPath: /tmp
+            - name: "volume-etc-perun"
+              readOnly: true
+              mountPath: /etc/perun
+            - name: "volume-etc-perun-modules"
+              readOnly: true
+              mountPath: /etc/perun/modules
+      # volumes (defined for all containers in a pod)
+      volumes:
+        - name: tmp-volume
+          emptyDir: { }
+        - name: "volume-etc-perun"
+          secret:
+            secretName: "perun-rpc-secret-etc-perun"
+        - name: "volume-etc-perun-modules"
+          secret:
+            secretName: "perun-rpc-secret-etc-perun-modules"

@@ -3,16 +3,16 @@
   ansible.builtin.assert:
     that:
       - ansible_version is defined
-      - ansible_version.full is version_compare('2.19', '>=')
-    fail_msg: "Required version is 2.19, this is {{ ansible_version.full }}"
+      - ansible_version.full is version_compare('2.20', '>=')
+    fail_msg: "Required version is 2.20, this is {{ ansible_version.full }}"
     quiet: true
   tags: always
 
 - name: "Collection community.general version check ({{ lookup('community.general.collection_version', 'community.general') }})"
   ansible.builtin.assert:
     that:
-      - lookup('community.general.collection_version', 'community.general') is version('11.4','>=')
-    fail_msg: "Required version is 11.4, this is {{lookup('community.general.collection_version', 'community.general') }}"
+      - lookup('community.general.collection_version', 'community.general') is version('12.3','>=')
+    fail_msg: "Required version is 12.3, this is {{lookup('community.general.collection_version', 'community.general') }}"
     quiet: true
   tags: always
 
@@ -24,9 +24,45 @@
   tags: always
 
 - name: "Cloud Native PostGres setup"
-  include_tasks:
+  ansible.builtin.include_tasks:
     file: postgres.yml
     apply:
       tags:
         - postgres
   tags: postgres
+
+
+- name: "Perun RPC setup"
+  ansible.builtin.include_tasks:
+    file: perun_rpc.yml
+    apply:
+      tags:
+        - perun_rpc
+        - perun_config
+  tags:
+    - perun_rpc
+    - perun_config
+
+#DONE
+# - OS setup - NTP, monitoring, unattended upgrades, Yubikeys - not needed
+# - users and home dirs - not needed
+# - volumes - /etc/perun and /home/perun - do it in respective pods
+
+
+#TODO
+# - perun_rpc
+# - configs - computes CORS domains
+# - certificates
+# - firewall
+# - logging and remote logging
+# - sendmail
+# - LDAP
+# - group specific tasks
+# - site specific tasks
+# - perun-2-perun sync
+# - perun_auditlogger
+# - perun_ldapc
+# - perun_engine
+# - perun_apache
+# - perun_cli
+

@@ -1,0 +1,63 @@
+- name: "set helm chart metadata"
+  set_fact:
+    chart_name: perunrpc
+    chart_version: 1.0.0
+    chart_description: Perun RPC chart
+    chart_app_version: "{{ perun_rpc_container_version }}"
+
+- name: "compute temporary chart directory name"
+  set_fact:
+    chart_path: "localcharts/{{ chart_name }}-{{ inventory_hostname }}"
+
+- name: "create directories for temporary chart"
+  loop:
+    - "{{ chart_path }}"
+    - "{{ chart_path }}/templates"
+  file:
+    state: directory
+    path: "{{ item }}"
+
+- name: "generate Chart.yaml file"
+  ansible.builtin.template:
+    src: "templates/Chart.yaml.j2"
+    dest: "{{ chart_path }}/Chart.yaml"
+
+- name: "generate values.yaml file"
+  ansible.builtin.template:
+    src: "templates/values.yaml.j2"
+    dest: "{{ chart_path }}/values.yaml"
+
+# detect local files
+- name: "detect local tomcat_init.sh"
+  ansible.builtin.stat:
+    path: "files/{{ perun_instance_hostname }}/tomcat_init.sh"
+  register: tomcat_init
+
+- name: "detect local perun-oidc-config.yml"
+  ansible.builtin.stat:
+    path: "files/{{ perun_instance_hostname }}/perun-oidc-config.yml"
+  register: perun_oidc_config
+
+- name: "find modules and other files "
+  set_fact:
+    modules: "{{ lookup('ansible.builtin.fileglob', 'files/'+perun_instance_hostname+'/modules/*', wantlist=True) }}"
+    etc_files: "{{ lookup('community.general.filetree', 'files/'+perun_instance_hostname+'/perun_rpc_etc/')| selectattr('state', 'equalto', 'file') | map(attribute='path') | list }}"
+#TODO tree in secret
+
+# generate YAML objects
+- name: "generate YAML files in {{ chart_path}} }}/templates/ directory"
+  loop:
+    - perun-rpc-secret-etc-perun.yaml
+    - perun-rpc-secret-etc-perun-modules.yaml
+    - perun-rpc-deployment.yaml
+  ansible.builtin.template:
+    src: "templates/charts/{{ chart_name }}/{{ item }}.j2"
+    dest: "{{ chart_path }}/templates/{{ item }}"
+
+#- name: "apply chart"
+#  kubernetes.core.helm:
+#    chart_ref: "{{ chart_path }}"
+#    release_namespace: "{{ k8s_namespace }}"
+#    context: "{{ k8s_context }}"
+#    release_name: perun-rpc
+#    release_state: present

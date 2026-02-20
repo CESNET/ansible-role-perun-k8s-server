@@ -5,8 +5,10 @@
   # perun_cnpg_cluster_aws_access_key_id:
   # perun_cnpg_cluster_aws_secret_access_key:
 # sensible defaults
+
+# Cloud Native PostGres
 perun_cnpg_cluster_external_hostname: "perundb.{{ k8s_namespace }}.dyn.cloud.e-infra.cz"
-perun_cnpg_cluster_image: "ghcr.io/cloudnative-pg/postgresql:18.1-standard-trixie"
+perun_cnpg_cluster_image: "ghcr.io/cloudnative-pg/postgresql:18-standard-trixie"
 perun_cnpg_cluster_db_parameters:
   encoding: UTF8
   localeCType: en_US.UTF-8
@@ -31,3 +33,9 @@ perun_cnpg_cluster_synchronous:
   method: any
   number: 1
   dataDurability: required
+
+# Perun RPC
+perun_rpc_requests_cpu: 500m
+perun_rpc_requests_mem: 2Gi
+perun_rpc_limits_cpu: 1
+perun_rpc_limits_mem: 4Gi
