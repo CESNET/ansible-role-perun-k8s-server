@@ -30,6 +30,7 @@ spec:
       containers:
         - name: "perun-rpc-container"
           image: "debian:latest"
+          # image: "{{ perun_container_registry }}/perun_rpc:{{ perun_rpc_container_version }}"
           # sleep forever
           command: [ "/bin/bash", "-c" ]
           args: [ "sleep infinity" ]
@@ -68,16 +69,44 @@ spec:
           volumeMounts:
             - name: tmp-volume
               mountPath: /tmp
+            - name: "log-volume"
+              mountPath: /var/log/perun
+              readOnly: false
             - name: "volume-etc-perun"
-              readOnly: true
               mountPath: /etc/perun
+            - name: "volume-home-perun-writable"
+              mountPath: /home/perun
       # volumes (defined for all containers in a pod)
       volumes:
         - name: tmp-volume
-          emptyDir: { }
+          emptyDir: {}
+        - name: "log-volume"
+          persistentVolumeClaim:
+            claimName: perun-rpc-persistent-volume-claim-logs
         - name: "volume-etc-perun"
           secret:
             secretName: "perun-rpc-secret-etc-perun"
             items:
-              {{ secret_volume_items | to_nice_yaml(indent=2) | indent(14) }}
-
+              {{ perunrpc_etc_secret_volume_items | to_nice_yaml(indent=2) | indent(14) }}
+        - name: "volume-home-perun-secret"
+          secret:
+            secretName: "perun-rpc-secret-home-perun"
+            defaultMode: 0755
+            items:
+              {{ perunrpc_home_secret_volume_items | to_nice_yaml(indent=2) | indent(14) }}
+        - name: "volume-home-perun-writable"
+          emptyDir: {}
+      # copy files for /home/perun from read-only Secret to writable empty directory
+      initContainers:
+        - name: copy-home
+          image: busybox
+          command: [ 'sh', '-c', 'cp -rL /src-secret/* /dest-dir/' ]
+          volumeMounts:
+            - name: volume-home-perun-secret
+              mountPath: /src-secret
+            - name: volume-home-perun-writable
+              mountPath: /dest-dir
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ "ALL" ]

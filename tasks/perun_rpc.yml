@@ -43,14 +43,16 @@
         - perun-dispatcher.properties
         - perun-namespaces.properties
       set_fact:
-        etc_secret_data: "{{ etc_secret_data | default({}) | combine({item: (lookup('ansible.builtin.template', 'perun/'+item+'.j2') | b64encode)}) }}"
-
+        perunrpc_etc_secret_data: "{{ perunrpc_etc_secret_data | default({}) | combine({item: (lookup('ansible.builtin.template', 'perun/'+item+'.j2') | b64encode)}) }}"
+      vars:
+        perun_postgresql_jdbc_url: "jdbc:postgresql://perundb-rw:5432/perun"
+        perun_postgresql_db_user_password: "{{ perun_cnpg_cluster_user_password }}"
     - name: "add config files"
       loop:
         - perun-extSources.xml
         - login-namespaces-rules-config.yml
       set_fact:
-        etc_secret_data: "{{ etc_secret_data| combine( { item: (lookup('ansible.builtin.file', lookup('ansible.builtin.first_found', files=[item], paths=['files/'+ perun_instance_hostname, 'files/perun/' ])) | b64encode)}) }}"
+        perunrpc_etc_secret_data: "{{ perunrpc_etc_secret_data| combine( { item: (lookup('ansible.builtin.file', lookup('ansible.builtin.first_found', files=[item], paths=['files/'+ perun_instance_hostname, 'files/perun/' ])) | b64encode)}) }}"
 
     - name: "find optional files"
       loop:
@@ -66,7 +68,7 @@
         label: "{{ item.item }} - {{ item.stat.exists }}"
       when: item.stat.exists
       set_fact:
-        etc_secret_data: "{{ etc_secret_data| combine( { (item.stat.path|basename): ( lookup('ansible.builtin.file',item.stat.path) | b64encode)}) }}"
+        perunrpc_etc_secret_data: "{{ perunrpc_etc_secret_data| combine( { (item.stat.path|basename): ( lookup('ansible.builtin.file',item.stat.path) | b64encode)}) }}"
 
     - name: "find modules"
       find:
@@ -80,7 +82,7 @@
       loop_control:
         label: "{{ item.path | basename }}"
       set_fact:
-        etc_secret_data: "{{ etc_secret_data| combine({ (item.path | relpath('files/'+perun_instance_hostname) | replace('/', '__')): (lookup('ansible.builtin.file',item.path) | b64encode) }) }}"
+        perunrpc_etc_secret_data: "{{ perunrpc_etc_secret_data| combine({ (item.path | relpath('files/'+perun_instance_hostname) | replace('/', '__')): (lookup('ansible.builtin.file',item.path) | b64encode) }) }}"
 
     - name: "find files in perun_rpc_etc"
       find:
@@ -91,19 +93,50 @@
 
     - name: "add files in perun_rpc_etc"
       set_fact:
-        etc_secret_data: "{{ etc_secret_data | combine({ (item.path | relpath('files/'+perun_instance_hostname+'/perun_rpc_etc/') | replace('/', '__')): (lookup('ansible.builtin.file',item.path) | b64encode) }) }}"
+        perunrpc_etc_secret_data: "{{ perunrpc_etc_secret_data | combine({ (item.path | relpath('files/'+perun_instance_hostname+'/perun_rpc_etc/') | replace('/', '__')): (lookup('ansible.builtin.file',item.path) | b64encode) }) }}"
       loop: "{{ perun_rpc_etc.files }}"
       no_log: yes
 
     - name: "prepare mount items"
       set_fact:
-        secret_volume_items: "{{ secret_volume_items | default([]) + [{ 'key': item, 'path': (item| replace('__', '/')) }] }}"
-      loop: "{{ etc_secret_data.keys()}}"
+        perunrpc_etc_secret_volume_items: "{{ perunrpc_etc_secret_volume_items | default([]) + [{ 'key': item, 'path': (item| replace('__', '/')) }] }}"
+      loop: "{{ perunrpc_etc_secret_data.keys()}}"
+
+- name: "block for /home/perun files"
+  block:
+    - name: "init lists"
+      set_fact:
+        perunrpc_home_secret_data:
+          README.txt: "{{ 'this folder is created from Kubernetes Secret' | b64encode }}"
+
+    - name: "find files in perun_rpc_home"
+      find:
+        paths: "files/{{ perun_instance_hostname }}/perun_rpc_home/"
+        recurse: yes
+        file_type: file
+      register: perun_rpc_home
+
+    - name: "add files in perun_rpc_home"
+      set_fact:
+        perunrpc_home_secret_data: "{{ perunrpc_home_secret_data | combine({ (item.path | relpath('files/'+perun_instance_hostname+'/perun_rpc_home/') | replace('/', '__')): (lookup('ansible.builtin.file',item.path) | b64encode) }) }}"
+      loop: "{{ perun_rpc_home.files }}"
+      no_log: yes
+
+    - name: "prepare mount items"
+      set_fact:
+        perunrpc_home_secret_volume_items: "{{ perunrpc_home_secret_volume_items | default([]) + [{ 'key': item, 'path': (item| replace('__', '/')) }] }}"
+      loop: "{{ perunrpc_home_secret_data.keys()}}"
+
+#TODO
+# logovani
+# perun_sync - externí perun nemá kam zapisovat, když to není VM
 
 # generate YAML objects
 - name: "generate YAML files in {{ chart_path}} }}/templates/ directory"
   loop:
     - perun-rpc-secret-etc-perun.yaml
+    - perun-rpc-secret-home-perun.yaml
+    - perun-rpc-persistent-volume-claim-logs.yaml
     - perun-rpc-deployment.yaml
   ansible.builtin.template:
     src: "templates/charts/{{ chart_name }}/{{ item }}.j2"

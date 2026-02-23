@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: perun-rpc-persistent-volume-claim-logs
+  namespace: "{{ k8s_namespace }}"
+  annotations:
+    field.cattle.io/description: "place for storing perun-rpc logs"
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: nfs-csi
