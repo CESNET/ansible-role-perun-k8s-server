@@ -71,9 +71,6 @@ spec:
             - name: "volume-etc-perun"
               readOnly: true
               mountPath: /etc/perun
-            - name: "volume-etc-perun-modules"
-              readOnly: true
-              mountPath: /etc/perun/modules
       # volumes (defined for all containers in a pod)
       volumes:
         - name: tmp-volume
@@ -81,6 +78,6 @@ spec:
         - name: "volume-etc-perun"
           secret:
             secretName: "perun-rpc-secret-etc-perun"
-        - name: "volume-etc-perun-modules"
-          secret:
-            secretName: "perun-rpc-secret-etc-perun-modules"
+            items:
+              {{ secret_volume_items | to_nice_yaml(indent=2) | indent(14) }}
+

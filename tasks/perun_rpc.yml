@@ -27,37 +27,92 @@
     src: "templates/values.yaml.j2"
     dest: "{{ chart_path }}/values.yaml"
 
-# detect local files
-- name: "detect local tomcat_init.sh"
-  ansible.builtin.stat:
-    path: "files/{{ perun_instance_hostname }}/tomcat_init.sh"
-  register: tomcat_init
+# prepare all files for /etc/perun as Secret items, encode paths by replacing "/" with "__", decode them back in Deployment
+- name: "block for /etc/perun files"
+  block:
+    - name: "generate config files from templates"
+      loop:
+        - server.xml
+        - jdbc.properties
+        - perun-apps-config.yml
+        - perun-roles.yml
+        - perun-web-gui.properties
+        - perun.properties
+        - logback.xml
+        - perun-registrar-lib.properties
+        - perun-dispatcher.properties
+        - perun-namespaces.properties
+      set_fact:
+        etc_secret_data: "{{ etc_secret_data | default({}) | combine({item: (lookup('ansible.builtin.template', 'perun/'+item+'.j2') | b64encode)}) }}"
 
-- name: "detect local perun-oidc-config.yml"
-  ansible.builtin.stat:
-    path: "files/{{ perun_instance_hostname }}/perun-oidc-config.yml"
-  register: perun_oidc_config
+    - name: "add config files"
+      loop:
+        - perun-extSources.xml
+        - login-namespaces-rules-config.yml
+      set_fact:
+        etc_secret_data: "{{ etc_secret_data| combine( { item: (lookup('ansible.builtin.file', lookup('ansible.builtin.first_found', files=[item], paths=['files/'+ perun_instance_hostname, 'files/perun/' ])) | b64encode)}) }}"
 
-- name: "find modules and other files "
-  set_fact:
-    modules: "{{ lookup('ansible.builtin.fileglob', 'files/'+perun_instance_hostname+'/modules/*', wantlist=True) }}"
-    etc_files: "{{ lookup('community.general.filetree', 'files/'+perun_instance_hostname+'/perun_rpc_etc/')| selectattr('state', 'equalto', 'file') | map(attribute='path') | list }}"
-#TODO tree in secret
+    - name: "find optional files"
+      loop:
+        - tomcat_init.sh
+        - perun-oidc-config.yml
+      ansible.builtin.stat:
+        path: "files/{{ perun_instance_hostname }}/{{ item }}"
+      register: optional_files
+
+    - name: "add optional files"
+      loop: "{{ optional_files.results }}"
+      loop_control:
+        label: "{{ item.item }} - {{ item.stat.exists }}"
+      when: item.stat.exists
+      set_fact:
+        etc_secret_data: "{{ etc_secret_data| combine( { (item.stat.path|basename): ( lookup('ansible.builtin.file',item.stat.path) | b64encode)}) }}"
+
+    - name: "find modules"
+      find:
+        paths: "files/{{ perun_instance_hostname }}/modules/"
+        recurse: yes
+        file_type: file
+      register: etc_modules
+
+    - name: "add modules"
+      loop: "{{ etc_modules.files }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
+      set_fact:
+        etc_secret_data: "{{ etc_secret_data| combine({ (item.path | relpath('files/'+perun_instance_hostname) | replace('/', '__')): (lookup('ansible.builtin.file',item.path) | b64encode) }) }}"
+
+    - name: "find files in perun_rpc_etc"
+      find:
+        paths: "files/{{ perun_instance_hostname }}/perun_rpc_etc/"
+        recurse: yes
+        file_type: file
+      register: perun_rpc_etc
+
+    - name: "add files in perun_rpc_etc"
+      set_fact:
+        etc_secret_data: "{{ etc_secret_data | combine({ (item.path | relpath('files/'+perun_instance_hostname+'/perun_rpc_etc/') | replace('/', '__')): (lookup('ansible.builtin.file',item.path) | b64encode) }) }}"
+      loop: "{{ perun_rpc_etc.files }}"
+      no_log: yes
+
+    - name: "prepare mount items"
+      set_fact:
+        secret_volume_items: "{{ secret_volume_items | default([]) + [{ 'key': item, 'path': (item| replace('__', '/')) }] }}"
+      loop: "{{ etc_secret_data.keys()}}"
 
 # generate YAML objects
 - name: "generate YAML files in {{ chart_path}} }}/templates/ directory"
   loop:
     - perun-rpc-secret-etc-perun.yaml
-    - perun-rpc-secret-etc-perun-modules.yaml
     - perun-rpc-deployment.yaml
   ansible.builtin.template:
     src: "templates/charts/{{ chart_name }}/{{ item }}.j2"
     dest: "{{ chart_path }}/templates/{{ item }}"
 
-#- name: "apply chart"
-#  kubernetes.core.helm:
-#    chart_ref: "{{ chart_path }}"
-#    release_namespace: "{{ k8s_namespace }}"
-#    context: "{{ k8s_context }}"
-#    release_name: perun-rpc
-#    release_state: present
+- name: "apply chart"
+  kubernetes.core.helm:
+    chart_ref: "{{ chart_path }}"
+    release_namespace: "{{ k8s_namespace }}"
+    context: "{{ k8s_context }}"
+    release_name: perun-rpc
+    release_state: present
