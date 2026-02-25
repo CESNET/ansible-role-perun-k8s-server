@@ -6,6 +6,10 @@
   # perun_cnpg_cluster_aws_secret_access_key:
 # sensible defaults
 
+# start containers with "sleep infinity" instead of the main process
+perun_k8s_debug: false
+perun_rpc_k8s_debug: "{{ perun_k8s_debug }}"
+
 # Cloud Native PostGres
 perun_cnpg_cluster_external_hostname: "perundb.{{ k8s_namespace }}.dyn.cloud.e-infra.cz"
 perun_cnpg_cluster_image: "ghcr.io/cloudnative-pg/postgresql:18-standard-trixie"

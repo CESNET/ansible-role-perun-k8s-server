@@ -19,22 +19,25 @@ spec:
       labels:
         app: perun-rpc
     spec:
+      imagePullSecrets:
+        - name: gitlab-cesnet-secret
       # Pod security context
       securityContext:
         fsGroupChangePolicy: OnRootMismatch
         runAsNonRoot: true
-        runAsUser: 1000
+        runAsUser: 961
+        runAsGroup: 961
         seccompProfile:
           type: RuntimeDefault
       # list of containers
       containers:
         - name: "perun-rpc-container"
-          image: "debian:latest"
-          # image: "{{ perun_container_registry }}/perun_rpc:{{ perun_rpc_container_version }}"
-          # sleep forever
+          image: "{{ perun_container_registry }}/perun_rpc:{{ perun_rpc_container_version }}"
+          imagePullPolicy: Always
+          {%- if perun_rpc_k8s_debug +%}
           command: [ "/bin/bash", "-c" ]
           args: [ "sleep infinity" ]
-          imagePullPolicy: Always
+          {%- endif +%}
           # Container security context
           securityContext:
             allowPrivilegeEscalation: false

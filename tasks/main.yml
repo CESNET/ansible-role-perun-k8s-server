@@ -31,6 +31,30 @@
         - postgres
   tags: postgres
 
+- name: "create Secret with deploy tokens for reading GitLab registry"
+  kubernetes.core.k8s:
+    state: present
+    resource_definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: "gitlab-cesnet-secret"
+        namespace: "{{ k8s_namespace }}"
+        annotations:
+          field.cattle.io/description: "holds authentication token for GitLab docker registry"
+      type: kubernetes.io/dockerconfigjson
+      stringData:
+        .dockerconfigjson: "{{ docker_config_structure | to_json }}"
+  vars:
+    docker_config_structure:
+      auths:
+        gitlab-registry.cesnet.cz:
+          username: gitlab-deploy-token-712
+          password: gldt-TcDbEs8Yj-cX4KPmM1Wq
+          auth: "{{ 'gitlab-deploy-token-712:gldt-TcDbEs8Yj-cX4KPmM1Wq' | b64encode }}"
+  tags:
+    - perun_gitlab
+
 
 - name: "Perun RPC setup"
   ansible.builtin.include_tasks:
