@@ -103,7 +103,7 @@ spec:
       initContainers:
         - name: copy-home
           image: busybox
-          command: [ 'sh', '-c', 'cp -rL /src-secret/* /dest-dir/' ]
+          command: [ 'sh', '-c', 'cp -rL /src-secret/. /dest-dir/' ]
           volumeMounts:
             - name: volume-home-perun-secret
               mountPath: /src-secret

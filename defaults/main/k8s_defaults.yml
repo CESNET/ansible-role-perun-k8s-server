@@ -43,3 +43,13 @@ perun_rpc_requests_cpu: 500m
 perun_rpc_requests_mem: 2Gi
 perun_rpc_limits_cpu: 1
 perun_rpc_limits_mem: 4Gi
+
+# vim defaults
+perun_vimrc: |
+  " fix mouse
+  set mouse=r
+  " syntax highlighting
+  syntax on
+  set background=dark
+  " jump to the last position when reopening a file
+  au BufReadPost * if line("'\"") > 1 && line("'\"") <= line("$") | exe "normal! g'\"" | endif

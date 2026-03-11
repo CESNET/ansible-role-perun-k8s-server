@@ -96,19 +96,21 @@
       set_fact:
         perunrpc_etc_secret_data: "{{ perunrpc_etc_secret_data | combine({ (item.path | relpath('files/'+perun_instance_hostname+'/perun_rpc_etc/') | replace('/', '__')): (lookup('ansible.builtin.file',item.path) | b64encode) }) }}"
       loop: "{{ perun_rpc_etc.files }}"
-      no_log: yes
+      loop_control:
+        label: "{{ item.path }}"
 
     - name: "prepare mount items"
       set_fact:
         perunrpc_etc_secret_volume_items: "{{ perunrpc_etc_secret_volume_items | default([]) + [{ 'key': item, 'path': (item| replace('__', '/')) }] }}"
       loop: "{{ perunrpc_etc_secret_data.keys()}}"
 
-- name: "block for /home/perun files"
+- name: "/home/perun files"
   block:
     - name: "init lists"
       set_fact:
         perunrpc_home_secret_data:
           README.txt: "{{ 'this folder is created from Kubernetes Secret' | b64encode }}"
+          ".vimrc": "{{ perun_vimrc| b64encode }}"
 
     - name: "find files in perun_rpc_home"
       find:
@@ -121,7 +123,8 @@
       set_fact:
         perunrpc_home_secret_data: "{{ perunrpc_home_secret_data | combine({ (item.path | relpath('files/'+perun_instance_hostname+'/perun_rpc_home/') | replace('/', '__')): (lookup('ansible.builtin.file',item.path) | b64encode) }) }}"
       loop: "{{ perun_rpc_home.files }}"
-      no_log: yes
+      loop_control:
+        label: "{{ item.path }}"
 
     - name: "prepare mount items"
       set_fact:
