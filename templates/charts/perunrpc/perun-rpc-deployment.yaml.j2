@@ -16,6 +16,7 @@ spec:
     metadata:
       annotations:
         field.cattle.io/description: "a perun-rpc pod"
+        kubectl.kubernetes.io/default-container: "perun-rpc-container"
       labels:
         app: perun-rpc
     spec:
@@ -79,6 +80,10 @@ spec:
               mountPath: /etc/perun
             - name: "volume-home-perun-writable"
               mountPath: /home/perun
+            {%- if perun_rpc_k8s_empty_webapps_dir +%}
+            - name: "perun-rpc-webapps"
+              mountPath: /opt/tomcat/webapps
+            {%- endif +%}
       # volumes (defined for all containers in a pod)
       volumes:
         - name: tmp-volume
@@ -99,6 +104,10 @@ spec:
               {{ perunrpc_home_secret_volume_items | to_nice_yaml(indent=2) | indent(14) }}
         - name: "volume-home-perun-writable"
           emptyDir: {}
+        {%- if perun_rpc_k8s_empty_webapps_dir +%}
+        - name: "perun-rpc-webapps"
+          emptyDir: {}
+        {%- endif +%}
       # copy files for /home/perun from read-only Secret to writable empty directory
       initContainers:
         - name: copy-home

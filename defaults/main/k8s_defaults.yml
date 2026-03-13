@@ -4,11 +4,17 @@
   # perun_cnpg_cluster_pgwatch_user_password:
   # perun_cnpg_cluster_aws_access_key_id:
   # perun_cnpg_cluster_aws_secret_access_key:
-# sensible defaults
+
+# DEBUG OPTIONS
 
 # start containers with "sleep infinity" instead of the main process
 perun_k8s_debug: false
+# start perun-rpc container with "sleep infinity" instead of the default process
 perun_rpc_k8s_debug: "{{ perun_k8s_debug }}"
+# replace /opt/tomcat/webapps with empty writable dir for uploading modified perun-rpc.war
+perun_rpc_k8s_empty_webapps_dir: false
+
+# DEFAULT VALUES
 
 # Cloud Native PostGres
 perun_cnpg_cluster_external_hostname: "perundb.{{ k8s_namespace }}.dyn.cloud.e-infra.cz"

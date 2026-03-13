@@ -46,6 +46,7 @@
       vars:
         perun_postgresql_jdbc_url: "jdbc:postgresql://perundb-rw:5432/perun"
         perun_postgresql_db_user_password: "{{ perun_cnpg_cluster_user_password }}"
+        perun_dispatcher_host: "0.0.0.0"
 
     - name: "add config files"
       loop:
@@ -141,6 +142,7 @@
     - perun-rpc-secret-etc-perun.yaml
     - perun-rpc-secret-home-perun.yaml
     - perun-rpc-persistent-volume-claim-logs.yaml
+    - perun-rpc-service.yaml
     - perun-rpc-deployment.yaml
   ansible.builtin.template:
     src: "templates/charts/{{ chart_name }}/{{ item }}.j2"
@@ -153,18 +155,6 @@
     context: "{{ k8s_context }}"
     release_name: perun-rpc
     release_state: present
-
-- name: "debug info"
-  when: perun_rpc_k8s_debug
-  block:
-    - name: "get pod info"
-      kubernetes.core.k8s_info:
-          kind: Pod
-          namespace: "{{ k8s_namespace }}"
-          context: "{{ k8s_context }}"
-          label_selectors:
-          - app=perun-rpc
-      register: perunrpc_pod_info
-    - name: "command for shell"
-      debug:
-        msg: "kubectl exec -it {{ perunrpc_pod_info.resources[0].metadata.name }} --container {{ perunrpc_pod_info.resources[0].spec.containers[0].name }} -- /bin/bash"
+    wait: true
+    wait_timeout: 300s
+    atomic: yes

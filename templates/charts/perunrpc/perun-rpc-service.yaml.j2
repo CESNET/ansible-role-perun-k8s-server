@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: perun-rpc
+  namespace: "{{ k8s_namespace }}"
+  annotations:
+    field.cattle.io/description: "the Perun RPC service for targeting TCP ports"
+spec:
+  selector:
+    app: perun-rpc
+  ports:
+    - name: dispatcher-port
+      port: 6071
+      targetPort: 6071
+    - name: ajp-port
+      port: 8009
+      targetPort: 8009
