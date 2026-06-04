@@ -54,7 +54,7 @@
         - login-namespaces-rules-config.yml
         - logback.xml
       set_fact:
-        perunrpc_etc_secret_data: "{{ perunrpc_etc_secret_data| combine( { item: (lookup('ansible.builtin.file', lookup('ansible.builtin.first_found', files=[item], paths=['files/'+ perun_instance_hostname, 'files/', 'files/perun/' ])) | b64encode)}) }}"
+        perunrpc_etc_secret_data: "{{ perunrpc_etc_secret_data| combine( { item: (lookup('ansible.builtin.unvault', lookup('ansible.builtin.first_found', files=[item], paths=['files/'+ perun_instance_hostname, 'files/', 'files/perun/' ])) | b64encode)}) }}"
 
     - name: "find optional files"
       loop:
@@ -70,7 +70,7 @@
         label: "{{ item.item }} - {{ item.stat.exists }}"
       when: item.stat.exists
       set_fact:
-        perunrpc_etc_secret_data: "{{ perunrpc_etc_secret_data| combine( { (item.stat.path|basename): ( lookup('ansible.builtin.file',item.stat.path) | b64encode)}) }}"
+        perunrpc_etc_secret_data: "{{ perunrpc_etc_secret_data| combine( { (item.stat.path|basename): ( lookup('ansible.builtin.unvault',item.stat.path) | b64encode)}) }}"
 
     - name: "find modules"
       find:
@@ -84,7 +84,7 @@
       loop_control:
         label: "{{ item.path | basename }}"
       set_fact:
-        perunrpc_etc_secret_data: "{{ perunrpc_etc_secret_data| combine({ (item.path | relpath('files/'+perun_instance_hostname) | replace('/', '__')): (lookup('ansible.builtin.file',item.path) | b64encode) }) }}"
+        perunrpc_etc_secret_data: "{{ perunrpc_etc_secret_data| combine({ (item.path | relpath('files/'+perun_instance_hostname) | replace('/', '__')): (lookup('ansible.builtin.unvault',item.path) | b64encode) }) }}"
 
     - name: "find files in perun_rpc_etc"
       find:
@@ -95,7 +95,7 @@
 
     - name: "add files in perun_rpc_etc"
       set_fact:
-        perunrpc_etc_secret_data: "{{ perunrpc_etc_secret_data | combine({ (item.path | relpath('files/'+perun_instance_hostname+'/perun_rpc_etc/') | replace('/', '__')): (lookup('ansible.builtin.file',item.path) | b64encode) }) }}"
+        perunrpc_etc_secret_data: "{{ perunrpc_etc_secret_data | combine({ (item.path | relpath('files/'+perun_instance_hostname+'/perun_rpc_etc/') | replace('/', '__')): (lookup('ansible.builtin.unvault',item.path) | b64encode) }) }}"
       loop: "{{ perun_rpc_etc.files }}"
       loop_control:
         label: "{{ item.path }}"
