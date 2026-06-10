@@ -1,0 +1,92 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: perun-apache
+  name: "perun-apache-deployment"
+  namespace: "{{ k8s_namespace }}"
+  annotations:
+    field.cattle.io/description: "the Perun Apache web server"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: perun-apache
+  template:
+    metadata:
+      annotations:
+        field.cattle.io/description: "a perun-apache pod"
+        kubectl.kubernetes.io/default-container: "perun-apache-container"
+      labels:
+        app: perun-apache
+    spec:
+      imagePullSecrets:
+        - name: gitlab-cesnet-secret
+      # Pod security context
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 33
+        runAsGroup: 33
+        fsGroup: 33
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      # list of containers
+      containers:
+        - name: "perun-apache-container"
+          image: "{{ perun_container_registry }}/perun_apache:{{ perun_apache_container_version }}"
+          imagePullPolicy: Always
+          {%- if perun_apache_k8s_debug +%}
+          command: [ "/bin/bash", "-c" ]
+          args: [ "sleep infinity" ]
+          {%- endif +%}
+          # Container security context
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop: [ "ALL" ]
+          # environment variables
+          env:
+            # set timezone
+            - name: TZ
+              value: "Europe/Prague"
+            # HTTP proxy
+            - name: HTTPS_PROXY
+              value: "http://proxy.muni.cz:3128"
+          # limits on CPU and memory
+          resources:
+            requests:
+              cpu: "{{ perun_apache_requests_cpu }}"
+              memory: "{{ perun_apache_requests_mem }}"
+            limits:
+              cpu: "{{ perun_apache_limits_cpu }}"
+              memory: "{{ perun_apache_limits_mem }}"
+          ports:
+            - containerPort: 8080
+              name: http
+              protocol: TCP
+            - containerPort: 8443
+              name: https
+              protocol: TCP
+          # mounted volumes
+          volumeMounts:
+            - name: apache-certs
+              mountPath: /etc/ssl/apache2
+            - name: apache-run
+              mountPath: /var/run/apache2
+            - name: apache-log
+              mountPath: /var/log/apache2
+            - name: www-html
+              mountPath: /var/www/html
+      volumes:
+        - name: apache-certs
+          secret:
+            secretName: {{ perun_certificate_name }}
+        - name: apache-run
+          emptyDir: {}
+        - name: apache-log
+          emptyDir: {}
+        - name: www-html
+          emptyDir: {}
+

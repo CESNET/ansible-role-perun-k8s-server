@@ -75,7 +75,18 @@
     - perun_rpc
     - perun_config
 
-- name: "print shell commands info"
+- name: "Perun Apache setup"
+  ansible.builtin.include_tasks:
+    file: perun_apache.yml
+    apply:
+      tags:
+        - perun_apache
+        - perun_config
+  tags:
+    - perun_apache
+    - perun_config
+
+- name: "print RPC shell commands"
   tags:
     - perun_rpc
     - perun_config
@@ -89,16 +100,31 @@
           label_selectors:
           - app=perun-rpc
       register: perunrpc_pod_info
-#    - name: "shell in perun-rpc"
-#      debug:
-#        msg: "kubectl exec -it {{ perunrpc_pod_info.resources[0].metadata.name }} --container {{ perunrpc_pod_info.resources[0].spec.containers[0].name }} -- /bin/bash"
     - name: "shell in perun-rpc"
       debug:
-        msg: "kubectl exec -it deployment/perun-rpc-deployment --container perun-rpc-container -- /bin/bash"
+        msg: "kubectl exec --context={{ k8s_context }} --namespace={{ k8s_namespace }} -it deployment/perun-rpc-deployment --container perun-rpc-container -- /bin/bash"
     - name: "copy rpc webapp"
       when: perun_rpc_k8s_debug
       debug:
         msg: "kubectl cp perun-rpc.war {{ perunrpc_pod_info.resources[0].metadata.name }}:/opt/tomcat/webapps/"
+
+- name: "print Apache shell commands info"
+  tags:
+    - perun_apache
+    - perun_config
+    - perun_shells
+  block:
+    - name: "get pod info"
+      kubernetes.core.k8s_info:
+          kind: Pod
+          namespace: "{{ k8s_namespace }}"
+          context: "{{ k8s_context }}"
+          label_selectors:
+          - app=perun-apache
+      register: perunrpc_pod_info
+    - name: "shell in perun-apache"
+      debug:
+        msg: "kubectl exec --context={{ k8s_context }} --namespace={{ k8s_namespace }} -it deployment/perun-apache-deployment --container perun-apache-container -- /bin/bash"
 
 #DONE
 # - OS setup - NTP, monitoring, unattended upgrades, Yubikeys - not needed

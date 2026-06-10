@@ -1,6 +1,6 @@
 - name: "set helm chart metadata"
   set_fact:
-    chart_name: perunrpc
+    chart_name: perun-rpc
     chart_version: 1.0.0
     chart_description: Perun RPC chart
     chart_app_version: "{{ perun_rpc_container_version }}"
@@ -137,7 +137,7 @@
 # perun_sync - externí perun nemá kam zapisovat, když to není VM
 
 # generate YAML objects
-- name: "generate YAML files in {{ chart_path}} }}/templates/ directory"
+- name: "generate YAML files in {{ chart_path }}/templates/ directory"
   loop:
     - perun-rpc-secret-etc-perun.yaml
     - perun-rpc-secret-home-perun.yaml
@@ -148,7 +148,7 @@
     src: "templates/charts/{{ chart_name }}/{{ item }}.j2"
     dest: "{{ chart_path }}/templates/{{ item }}"
 
-- name: "apply chart"
+- name: "apply chart {{ chart_name }}"
   kubernetes.core.helm:
     chart_ref: "{{ chart_path }}"
     release_namespace: "{{ k8s_namespace }}"

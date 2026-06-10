@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: perun-apache-service
+  namespace: "{{ k8s_namespace }}"
+  annotations:
+    field.cattle.io/description: "the service for targeting Apache TCP ports"
+    # https://kubernetes-sigs.github.io/external-dns/latest/docs/annotations/annotations/#external-dnsalphakubernetesiohostname
+    external-dns.alpha.kubernetes.io/hostname: "{{ perun_rpc_hostname }},{{ perun_api_hostname }}"
+spec:
+  type: LoadBalancer
+  externalName: {{ perun_rpc_hostname}}
+  selector:
+    app: perun-apache
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 8080
+    - name: https
+      protocol: TCP
+      port: 443
+      targetPort: 8443

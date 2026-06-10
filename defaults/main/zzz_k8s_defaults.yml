@@ -58,6 +58,12 @@ perun_rpc_requests_mem: 2Gi
 perun_rpc_limits_cpu: 1
 perun_rpc_limits_mem: 4Gi
 
+# Apache
+perun_apache_requests_cpu: 500m
+perun_apache_requests_mem: 2Gi
+perun_apache_limits_cpu: 1
+perun_apache_limits_mem: 4Gi
+
 # vim defaults
 perun_vimrc: |
   " fix mouse
