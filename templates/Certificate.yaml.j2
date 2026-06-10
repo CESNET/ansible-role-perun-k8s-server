@@ -1,0 +1,33 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ perun_certificate_name }}
+  namespace: {{ k8s_namespace }}
+  annotations:
+    field.cattle.io/description: "Let's Encrypt ECDSA P-384"
+spec:
+  # Secret will contain: tls-combined.pem, tls.crt, tls.key
+  secretName: {{ perun_certificate_name }}
+  secretTemplate:
+    annotations:
+      field.cattle.io/description: "TLS certificate and private key"
+  privateKey:
+    encoding: PKCS1
+    algorithm: ECDSA
+    size: 384
+  additionalOutputFormats:
+    - type: CombinedPEM
+  issuerRef:
+    group: cert-manager.io
+    kind: ClusterIssuer
+    name: letsencrypt-prod-dns
+  dnsNames:
+      - {{ perun_rpc_hostname }}
+      - {{ perun_api_hostname  }}
+      - {{ perun_ngui_admin_hostname }}
+      - {{ perun_ngui_profile_hostname  }}
+      - {{ perun_ngui_pwdreset_hostname }}
+      - {{ perun_ngui_publications_hostname  }}
+  usages:
+    - digital signature
+    - key encipherment

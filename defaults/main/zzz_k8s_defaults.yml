@@ -16,6 +16,14 @@ perun_rpc_k8s_empty_webapps_dir: false
 
 # DEFAULT VALUES
 
+perun_certificate_name: "{{ k8s_namespace }}-dyn-cloud-e-infra-cz-tls"
+perun_rpc_hostname: "{{ k8s_namespace }}.dyn.cloud.e-infra.cz"
+perun_api_hostname: "api.{{ k8s_namespace }}.dyn.cloud.e-infra.cz"
+perun_ngui_admin_hostname: "admin.{{ k8s_namespace }}.dyn.cloud.e-infra.cz"
+perun_ngui_profile_hostname: "profile.{{ k8s_namespace }}.dyn.cloud.e-infra.cz"
+perun_ngui_pwdreset_hostname: "pwdreset.{{ k8s_namespace }}.dyn.cloud.e-infra.cz"
+perun_ngui_publications_hostname: "publications.{{ k8s_namespace }}.dyn.cloud.e-infra.cz"
+
 # Cloud Native PostGres
 perun_cnpg_cluster_external_hostname: "perundb.{{ k8s_namespace }}.dyn.cloud.e-infra.cz"
 perun_cnpg_cluster_image: "ghcr.io/cloudnative-pg/postgresql:18-standard-trixie"

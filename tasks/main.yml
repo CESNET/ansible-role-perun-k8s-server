@@ -1,18 +1,18 @@
 ---
-- name: "Ansible core version check ({{ ansible_version.full }})"
+- name: "Ansible core version check ({{ ansible_version.full }} >= 2.21)"
   ansible.builtin.assert:
     that:
       - ansible_version is defined
-      - ansible_version.full is version_compare('2.20', '>=')
-    fail_msg: "Required version is 2.20, this is {{ ansible_version.full }}"
+      - ansible_version.full is version_compare('2.21', '>=')
+    fail_msg: "Required version is 2.21, this is {{ ansible_version.full }}"
     quiet: true
   tags: always
 
-- name: "Collection community.general version check ({{ lookup('community.general.collection_version', 'community.general') }})"
+- name: "Collection kubernetes.core version check ({{ lookup('community.general.collection_version', 'kubernetes.core') }} >= 6.4)"
   ansible.builtin.assert:
     that:
-      - lookup('community.general.collection_version', 'community.general') is version('12.3','>=')
-    fail_msg: "Required version is 12.3, this is {{lookup('community.general.collection_version', 'community.general') }}"
+      - lookup('community.general.collection_version', 'kubernetes.core') is version('6.4','>=')
+    fail_msg: "Required version is 6.4, this is {{lookup('community.general.collection_version', 'kubernetes.core') }}"
     quiet: true
   tags: always
 
@@ -55,6 +55,14 @@
   tags:
     - perun_gitlab
 
+- name: "certificates setup"
+  ansible.builtin.include_tasks:
+    file: perun_certs.yml
+    apply:
+      tags:
+        - perun_certs
+  tags:
+    - perun_certs
 
 - name: "Perun RPC setup"
   ansible.builtin.include_tasks:
@@ -67,7 +75,7 @@
     - perun_rpc
     - perun_config
 
-- name: "shell commands"
+- name: "print shell commands info"
   tags:
     - perun_rpc
     - perun_config

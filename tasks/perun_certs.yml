@@ -1,0 +1,12 @@
+- name: "create Certificate k8s object"
+  kubernetes.core.k8s:
+    state: present
+    context: "{{ k8s_context }}"
+    template: Certificate.yaml.j2
+    wait: yes
+    wait_timeout: 240
+    wait_condition:
+      type: Ready
+      status: True
+      reason: Ready
+
