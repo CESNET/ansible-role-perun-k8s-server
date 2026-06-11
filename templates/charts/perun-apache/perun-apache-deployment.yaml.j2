@@ -94,11 +94,6 @@ spec:
             - name: tmpfs
               mountPath: /tmp
               readOnly: false
-            {%- for item in etc_perun_apache_maintenance.files +%}
-            - name: "volume-etc-perun-apache-maintenance-{{ loop.index0 }}"
-              mountPath: /etc/perun/apache/maintenance/{{ item.path | basename }}
-              subPath: {{ item.path | basename }}
-            {%- endfor +%}
       volumes:
         - name: tmpfs
           emptyDir:
@@ -132,8 +127,3 @@ spec:
             secretName: "perun-apache-secret-etc-perun-apache-shibboleth"
             items:
               {{ etc_perun_apache_shibboleth_secret_volume_items | to_nice_yaml(indent=2) | indent(14) }}
-        {%- for item in etc_perun_apache_maintenance.files +%}
-        - name: "volume-etc-perun-apache-maintenance-{{ loop.index0 }}"
-          secret:
-            secretName: "perun-apache-secret-etc-perun-apache-maintenance-{{ loop.index0 }}"
-        {%- endfor +%}

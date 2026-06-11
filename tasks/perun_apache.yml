@@ -139,6 +139,7 @@
     - name: "set perun_rpc_container_hostname variable for templates"
       set_fact:
         perun_rpc_container_hostname: perun-rpc-service
+        perun_apache_use_hostfullchain: true
 
     - name: "create /etc/perun/apache/sites-enabled/000-perun.conf"
       ansible.builtin.template:
@@ -329,7 +330,7 @@
         label: "{{ item.path }}"
     - name: "prepare mount items"
       set_fact:
-        etc_perun_apache_img_secret_volume_items: "{{ etc_perun_apache_img_volume_items | default([]) + [{ 'key': item, 'path': (item| replace('__', '/')) }] }}"
+        etc_perun_apache_img_secret_volume_items: "{{ etc_perun_apache_img_secret_volume_items | default([]) + [{ 'key': item, 'path': (item| replace('__', '/')) }] }}"
       loop: "{{ etc_perun_apache_img_secret_data.keys()}}"
 
 - name: "prepare /etc/perun/apache/sites-enabled secret data"
@@ -348,7 +349,7 @@
         label: "{{ item.path }}"
     - name: "prepare mount items"
       set_fact:
-        etc_perun_apache_sites_enabled_secret_volume_items: "{{ etc_perun_apache_sites_enabled_volume_items | default([]) + [{ 'key': item, 'path': (item| replace('__', '/')) }] }}"
+        etc_perun_apache_sites_enabled_secret_volume_items: "{{ etc_perun_apache_sites_enabled_secret_volume_items | default([]) + [{ 'key': item, 'path': (item| replace('__', '/')) }] }}"
       loop: "{{ etc_perun_apache_sites_enabled_secret_data.keys()}}"
 
 - name: "prepare /etc/perun/apache/shibboleth secret data"
@@ -367,35 +368,31 @@
         label: "{{ item.path }}"
     - name: "prepare mount items"
       set_fact:
-        etc_perun_apache_shibboleth_secret_volume_items: "{{ etc_perun_apache_shibboleth_volume_items | default([]) + [{ 'key': item, 'path': (item| replace('__', '/')) }] }}"
+        etc_perun_apache_shibboleth_secret_volume_items: "{{ etc_perun_apache_shibboleth_secret_volume_items | default([]) + [{ 'key': item, 'path': (item| replace('__', '/')) }] }}"
       loop: "{{ etc_perun_apache_shibboleth_secret_data.keys()}}"
 
 
-- name: "prepare /etc/perun/apache/maintenance secret data"
-  block:
-    - name: "find files"
-      find:
-        paths: "{{ chart_path }}/files/maintenance"
-        recurse: yes
-        file_type: file
-      register: etc_perun_apache_maintenance
+#- name: "prepare /etc/perun/apache/maintenance secret data"
+#  block:
+#    - name: "find files"
+#      find:
+#        paths: "{{ chart_path }}/files/maintenance"
+#        recurse: yes
+#        file_type: file
+#      register: etc_perun_apache_maintenance
+#
+#    - name: "loop files"
+#      loop: "{{ etc_perun_apache_maintenance.files }}"
+#      loop_control:
+#        label: "{{ item.path }}"
+#        index_var: idx
+#      vars:
+#        file_content: "{{ lookup('ansible.builtin.unvault',item.path) | b64encode }}"
+#        file_name: "{{ item.path | relpath(chart_path+'/files/maintenance/') }}"
+#      ansible.builtin.template:
+#        src: "templates/charts/{{ chart_name }}/perun-apache-secret-etc-perun-apache-maintenance.yaml.j2"
+#        dest: "{{ chart_path }}/templates/perun-apache-secret-etc-perun-apache-maintenance-{{ idx }}.yaml"
 
-    - name: "loop files"
-      loop: "{{ etc_perun_apache_maintenance.files }}"
-      loop_control:
-        label: "{{ item.path }}"
-        index_var: idx
-      vars:
-        file_content: "{{ lookup('ansible.builtin.unvault',item.path) | b64encode }}"
-        file_name: "{{ item.path | relpath(chart_path+'/files/maintenance/') }}"
-      ansible.builtin.template:
-        src: "templates/charts/{{ chart_name }}/perun-apache-secret-etc-perun-apache-maintenance.yaml.j2"
-        dest: "{{ chart_path }}/templates/perun-apache-secret-etc-perun-apache-maintenance-{{ idx }}.yaml"
-
-- name: "clean files"
-  file:
-    path: "{{ chart_path }}/files"
-    state: absent
 
 # TODO maintenance je moc velké
 - name: "generate YAML files in {{ chart_path}} }}/templates/ directory"
