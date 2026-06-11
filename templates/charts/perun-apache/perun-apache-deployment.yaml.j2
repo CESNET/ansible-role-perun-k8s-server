@@ -72,14 +72,37 @@ spec:
           # mounted volumes
           volumeMounts:
             - name: apache-certs
-              mountPath: /etc/ssl/apache2
+              mountPath: /etc/perun/ssl/hostkey.pem
+              subPath: tls.key
+            - name: apache-certs
+              mountPath: /etc/perun/ssl/hostfullchain.pem
+              subPath: tls.crt
             - name: apache-run
               mountPath: /var/run/apache2
             - name: apache-log
               mountPath: /var/log/apache2
             - name: www-html
               mountPath: /var/www/html
+            - name: "volume-etc-perun-apache"
+              mountPath: /etc/perun/apache
+            - name: "volume-etc-perun-apache-img"
+              mountPath: /etc/perun/apache/img
+            - name: "volume-etc-perun-apache-sites-enabled"
+              mountPath: /etc/perun/apache/sites-enabled
+            - name: "volume-etc-perun-apache-shibboleth"
+              mountPath: /etc/perun/apache/shibboleth
+            - name: tmpfs
+              mountPath: /tmp
+              readOnly: false
+            {%- for item in etc_perun_apache_maintenance.files +%}
+            - name: "volume-etc-perun-apache-maintenance-{{ loop.index0 }}"
+              mountPath: /etc/perun/apache/maintenance/{{ item.path | basename }}
+              subPath: {{ item.path | basename }}
+            {%- endfor +%}
       volumes:
+        - name: tmpfs
+          emptyDir:
+            medium: Memory
         - name: apache-certs
           secret:
             secretName: {{ perun_certificate_name }}
@@ -89,4 +112,28 @@ spec:
           emptyDir: {}
         - name: www-html
           emptyDir: {}
-
+        - name: "volume-etc-perun-apache"
+          secret:
+            secretName: "perun-apache-secret-etc-perun-apache"
+            items:
+              {{ etc_perun_apache_secret_volume_items | to_nice_yaml(indent=2) | indent(14) }}
+        - name: "volume-etc-perun-apache-img"
+          secret:
+            secretName: "perun-apache-secret-etc-perun-apache-img"
+            items:
+              {{ etc_perun_apache_img_secret_volume_items | to_nice_yaml(indent=2) | indent(14) }}
+        - name: "volume-etc-perun-apache-sites-enabled"
+          secret:
+            secretName: "perun-apache-secret-etc-perun-apache-sites-enabled"
+            items:
+              {{ etc_perun_apache_sites_enabled_secret_volume_items | to_nice_yaml(indent=2) | indent(14) }}
+        - name: "volume-etc-perun-apache-shibboleth"
+          secret:
+            secretName: "perun-apache-secret-etc-perun-apache-shibboleth"
+            items:
+              {{ etc_perun_apache_shibboleth_secret_volume_items | to_nice_yaml(indent=2) | indent(14) }}
+        {%- for item in etc_perun_apache_maintenance.files +%}
+        - name: "volume-etc-perun-apache-maintenance-{{ loop.index0 }}"
+          secret:
+            secretName: "perun-apache-secret-etc-perun-apache-maintenance-{{ loop.index0 }}"
+        {%- endfor +%}

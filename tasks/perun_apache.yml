@@ -9,10 +9,23 @@
   set_fact:
     chart_path: "localcharts/{{ chart_name }}-{{ inventory_hostname }}"
 
+- name: "clean chart path"
+  file:
+    path: "{{ chart_path }}"
+    state: absent
+
 - name: "create directories for temporary chart"
   loop:
     - "{{ chart_path }}"
     - "{{ chart_path }}/templates"
+    - "{{ chart_path }}/files/apache"
+    - "{{ chart_path }}/files/apache/well-known"
+    - "{{ chart_path }}/files/apache/robots"
+    - "{{ chart_path }}/files/apache/wayf"
+    - "{{ chart_path }}/files/maintenance"
+    - "{{ chart_path }}/files/img"
+    - "{{ chart_path }}/files/sites-enabled"
+    - "{{ chart_path }}/files/shibboleth"
   file:
     state: directory
     path: "{{ item }}"
@@ -27,8 +40,370 @@
     src: "templates/values.yaml.j2"
     dest: "{{ chart_path }}/values.yaml"
 
+- name: "/etc/perun files"
+  block:
+    - name: "add common passwords into perun.passwd"
+      community.general.htpasswd:
+        path: "{{ chart_path }}/files/apache/perun.passwd"
+        name: "{{ item.key }}"
+        password: "{{ item.value }}"
+      loop: "{{ perun_apache_basicAuth_common|dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+
+    - name: "add additional passwords into perun.passwd"
+      community.general.htpasswd:
+        path: "{{ chart_path }}/files/apache/perun.passwd"
+        name: "{{ item.key }}"
+        password: "{{ item.value }}"
+      loop: "{{ perun_apache_basicAuth_additional|dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+
+    - name: "install HTML pages for maintenance"
+      ansible.builtin.template:
+        src: "{{ item }}"
+        dest: "{{ chart_path }}/files/maintenance/"
+      with_fileglob:
+        - "templates/perun/maintenance/*"
+
+    - name: "copy logo and other images"
+      copy:
+        src: "{{ item }}"
+        dest: "{{ chart_path }}/files/img/"
+      with_fileglob:
+        - "{{ perun_instance_hostname }}/img/*"
+
+    - name: "copy wayf config"
+      when: perun_apache_enable_wayf_config
+      copy:
+        src: "{{ item }}"
+        dest: "{{ chart_path }}/files/apache/wayf/"
+      with_fileglob:
+        - "{{ perun_instance_hostname }}/wayf/*"
+
+    - name: "create /.well-known/security.txt file"
+      ansible.builtin.template:
+        src: perun/security.txt.j2
+        dest: "{{ chart_path }}/files/apache/well-known/security.txt"
+
+    - name: "create robots.txt and ai.txt"
+      when: perun_apache_enable_robots_config
+      ansible.builtin.copy:
+        src: "{{ lookup('ansible.builtin.first_found', priority_files) }}"
+        dest: "{{ chart_path }}/files/apache/robots/{{ item }}"
+      vars:
+        priority_files:
+          - "files/{{ perun_instance_hostname }}/{{ item }}"
+          - "files/perun/{{ item }}"
+      loop:
+        - robots.txt
+        - ai.txt
+
+    - name: "generate /etc/perun/apache/instanceConfig.json"
+      when: perun_ngui_admin_enabled
+      ansible.builtin.template:
+        src: perun/instance_configs/instanceConfig.json.j2
+        dest: "{{ chart_path }}/files/apache/instanceConfig.json"
+
+    - name: "generate /etc/perun/apache/profileInstanceConfig.json"
+      when: perun_ngui_profile_enabled
+      ansible.builtin.template:
+        src: perun/instance_configs/profileInstanceConfig.json.j2
+        dest: "{{ chart_path }}/files/apache/profileInstanceConfig.json"
+
+    - name: "generate /etc/perun/apache/consolidatorInstanceConfig.json"
+      when: perun_ngui_consolidator_enabled
+      ansible.builtin.template:
+        src: perun/instance_configs/consolidatorInstanceConfig.json.j2
+        dest: "{{ chart_path }}/files/apache/consolidatorInstanceConfig.json"
+
+    - name: "generate /etc/perun/apache/linkerInstanceConfig.json"
+      when: perun_ngui_linker_enabled
+      ansible.builtin.template:
+        src: perun/instance_configs/linkerInstanceConfig.json.j2
+        dest: "{{ chart_path }}/files/apache/linkerInstanceConfig.json"
+
+    - name: "generate /etc/perun/apache/pwdresetInstanceConfig.json"
+      when: perun_ngui_pwdreset_enabled
+      ansible.builtin.template:
+        src: perun/instance_configs/pwdresetInstanceConfig.json.j2
+        dest: "{{ chart_path }}/files/apache/pwdresetInstanceConfig.json"
+
+    - name: "generate /etc/perun/apache/publicationsInstanceConfig.json"
+      when: perun_ngui_publications_enabled
+      ansible.builtin.template:
+        src: perun/instance_configs/publicationsInstanceConfig.json.j2
+        dest: "{{ chart_path }}/files/apache/publicationsInstanceConfig.json"
+
+    - name: "set perun_rpc_container_hostname variable for templates"
+      set_fact:
+        perun_rpc_container_hostname: perun-rpc-service
+
+    - name: "create /etc/perun/apache/sites-enabled/000-perun.conf"
+      ansible.builtin.template:
+        src: perun/sites-enabled/perun.conf.j2
+        dest: "{{ chart_path }}/files/sites-enabled/000-perun.conf"
+
+    - name: "create /etc/perun/apache/sites-enabled/perun-cert.conf"
+      when: perun_apache_cert_hostname_enabled
+      ansible.builtin.template:
+        src: perun/sites-enabled/perun-cert.conf.j2
+        dest: "{{ chart_path }}/files/sites-enabled/perun-cert.conf"
+      vars:
+        perun_cert_prefix: cert
+
+    - name: "create /etc/perun/apache/sites-enabled/perun-admin.conf"
+      when: perun_ngui_admin_enabled
+      ansible.builtin.template:
+        src: perun/sites-enabled/perun-admin.conf.j2
+        dest: "{{ chart_path }}/files/sites-enabled/perun-admin.conf"
+
+    - name: "create /etc/perun/apache/sites-enabled/perun-api.conf"
+      when: perun_api_enabled
+      ansible.builtin.template:
+        src: perun/sites-enabled/perun-api.conf.j2
+        dest: "{{ chart_path }}/files/sites-enabled/perun-api.conf"
+      vars:
+        perun_cert_prefix: api
+
+    - name: "create /etc/perun/apache/sites-enabled/perun-api-alt.conf"
+      when: perun_api_alternative_enabled
+      ansible.builtin.template:
+        src: perun/sites-enabled/perun-api.conf.j2
+        dest: "{{ chart_path }}/files/sites-enabled/perun-api-alt.conf"
+      vars:
+        perun_api_hostname: "{{ perun_api_alternative_hostname }}"
+        perun_api_hostname_aliases: "{{ perun_api_alternative_hostname_aliases }}"
+        perun_api_tls_cert_same_as_host: "{{ perun_api_alternative_tls_cert_same_as_host }}"
+        perun_apache_oauth_introspection_url: "{{ perun_apache_oauth_alternative_introspection_url }}"
+        perun_apache_oauth_client_id: "{{ perun_apache_oauth_alternative_client_id }}"
+        perun_apache_oauth_client_secret: "{{ perun_apache_oauth_alternative_client_secret }}"
+        perun_cert_prefix: altapi
+
+    - name: "create /etc/perun/apache/sites-enabled/perun-api-cert.conf"
+      when: perun_api_cert_enabled
+      ansible.builtin.template:
+        src: perun/sites-enabled/perun-api-cert.conf.j2
+        dest: "{{ chart_path }}/files/sites-enabled/perun-api-cert.conf"
+      vars:
+        perun_cert_prefix: apicert
+
+    - name: "create /etc/perun/apache/sites-enabled/perun-api-cert-alt.conf"
+      when: perun_api_cert_alternative_enabled
+      ansible.builtin.template:
+        src: perun/sites-enabled/perun-api-cert.conf.j2
+        dest: "{{ chart_path }}/files/sites-enabled/perun-api-cert-alt.conf"
+      vars:
+        perun_api_cert_hostname: "{{ perun_api_cert_alternative_hostname }}"
+        perun_api_cert_hostname_aliases: "{{ perun_api_cert_alternative_hostname_aliases }}"
+        perun_api_cert_tls_cert_same_as_host: "{{ perun_api_cert_alternative_tls_cert_same_as_host }}"
+        perun_cert_prefix: altapicert
+
+    - name: "create /etc/perun/apache/sites-enabled/perun-profile.conf"
+      when: perun_ngui_profile_enabled
+      ansible.builtin.template:
+        src: perun/sites-enabled/perun-profile.conf.j2
+        dest: "{{ chart_path }}/files/sites-enabled/perun-profile.conf"
+
+    - name: "create /etc/perun/apache/sites-enabled/perun-pwdreset.conf"
+      when: perun_ngui_pwdreset_enabled
+      ansible.builtin.template:
+        src: perun/sites-enabled/perun-pwdreset.conf.j2
+        dest: "{{ chart_path }}/files/sites-enabled/perun-pwdreset.conf"
+
+    - name: "create /etc/perun/apache/sites-enabled/perun-publications.conf"
+      when: perun_ngui_publications_enabled
+      ansible.builtin.template:
+        src: perun/sites-enabled/perun-publications.conf.j2
+        dest: "{{ chart_path }}/files/sites-enabled/perun-publications.conf"
+
+    - name: "create /etc/perun/apache/sites-enabled/perun-consolidator.conf"
+      when: perun_ngui_consolidator_enabled
+      ansible.builtin.template:
+        src: perun/sites-enabled/perun-consolidator.conf.j2
+        dest: "{{ chart_path }}/files/sites-enabled/perun-consolidator.conf"
+
+    - name: "create /etc/perun/apache/sites-enabled/perun-linker.conf"
+      when: perun_ngui_linker_enabled
+      ansible.builtin.template:
+        src: perun/sites-enabled/perun-linker.conf.j2
+        dest: "{{ chart_path }}/files/sites-enabled/perun-linker.conf"
+
+    - name: "set Kerberos keytab"
+      ansible.builtin.copy:
+        src: "files/{{ perun_instance_hostname }}/krb5.http.keytab"
+        dest: "{{ chart_path }}/files/apache/krb5.http.keytab"
+      when:  perun_apache_kerberos_enabled
+
+    - name: "create attribute-map.xml"
+      ansible.builtin.template:
+        src:  perun/shibboleth/attribute-map.xml.j2
+        dest: "{{ chart_path }}/files/shibboleth/attribute-map.xml"
+
+    - name: "create attribute-policy.xml"
+      ansible.builtin.template:
+        src:  perun/shibboleth/attribute-policy.xml.j2
+        dest: "{{ chart_path }}/files/shibboleth/attribute-policy.xml"
+
+    - name: "create shibboleth2.xml"
+      ansible.builtin.template:
+        src:  perun/shibboleth/shibboleth2.xml.j2
+        dest: "{{ chart_path }}/files/shibboleth/shibboleth2.xml"
+
+    - name: "create sp-key.pem"
+      ansible.builtin.copy:
+        src: "{{ lookup('first_found', findme) }}"
+        dest: "{{ chart_path }}/files/shibboleth/sp-key.pem"
+      vars:
+        findme:
+          - "files/{{ perun_instance_hostname }}/sp-key.pem"
+          - "files/perun/sp-key.pem"
+
+    - name: "create sp-cert.pem"
+      ansible.builtin.copy:
+        src: "{{ lookup('first_found', findme) }}"
+        dest: "{{ chart_path }}/files/shibboleth/sp-cert.pem"
+      vars:
+        findme:
+          - "files/{{ perun_instance_hostname }}/sp-cert.pem"
+          - "files/perun/sp-cert.pem"
+
+    - name: "create apache_custom_vars containing changes to apache2.conf"
+      ansible.builtin.copy:
+        dest: "{{ chart_path }}/files/apache/apache_custom_vars.conf"
+        content: "{{ perun_apache_custom_vars }}"
+      when: perun_apache_custom_vars is defined and perun_apache_custom_vars | length > 0
+
+    - name: "create additional files for Shibboleth"
+      ansible.builtin.copy:
+        src: "{{ item }}"
+        dest: "{{ chart_path }}/files/shibboleth/"
+      with_fileglob:
+        - "files/{{ perun_instance_hostname }}/shibboleth/*"
+
+    - name: "detect apache_init.sh on controller machine"
+      ansible.builtin.stat:
+        path: "files/{{ perun_instance_hostname }}/apache_init.sh"
+      register: apache_init
+
+    - name: "copy apache_init.sh"
+      when: apache_init.stat.exists
+      copy:
+        dest: "{{ chart_path }}/files/apache/apache_init.sh"
+        src: "{{ apache_init.stat.path }}"
+
+# Secrets cannot be bigger than some limit, we must split them up
+- name: "prepare /etc/perun/apache secret data"
+  block:
+    - name: "find files"
+      find:
+        paths: "{{ chart_path }}/files/apache/"
+        recurse: yes
+        file_type: file
+      register: etc_perun_apache
+    - name: "add files"
+      set_fact:
+        etc_perun_apache_secret_data: "{{ etc_perun_apache_secret_data | default({}) | combine({ (item.path | relpath(chart_path+'/files/apache/') | replace('/', '__')): (lookup('ansible.builtin.unvault',item.path) | b64encode) }) }}"
+      loop: "{{ etc_perun_apache.files }}"
+      loop_control:
+        label: "{{ item.path }}"
+    - name: "prepare mount items"
+      set_fact:
+        etc_perun_apache_secret_volume_items: "{{ etc_perun_apache_secret_volume_items | default([]) + [{ 'key': item, 'path': (item| replace('__', '/')) }] }}"
+      loop: "{{ etc_perun_apache_secret_data.keys()}}"
+
+- name: "prepare /etc/perun/apache/img secret data"
+  block:
+    - name: "find files"
+      find:
+        paths: "{{ chart_path }}/files/img"
+        recurse: yes
+        file_type: file
+      register: etc_perun_apache_img
+    - name: "add files"
+      set_fact:
+        etc_perun_apache_img_secret_data: "{{ etc_perun_apache_img_secret_data | default({}) | combine({ (item.path | relpath(chart_path+'/files/img/') | replace('/', '__')): (lookup('ansible.builtin.unvault',item.path) | b64encode) }) }}"
+      loop: "{{ etc_perun_apache_img.files }}"
+      loop_control:
+        label: "{{ item.path }}"
+    - name: "prepare mount items"
+      set_fact:
+        etc_perun_apache_img_secret_volume_items: "{{ etc_perun_apache_img_volume_items | default([]) + [{ 'key': item, 'path': (item| replace('__', '/')) }] }}"
+      loop: "{{ etc_perun_apache_img_secret_data.keys()}}"
+
+- name: "prepare /etc/perun/apache/sites-enabled secret data"
+  block:
+    - name: "find files"
+      find:
+        paths: "{{ chart_path }}/files/sites-enabled"
+        recurse: yes
+        file_type: file
+      register: etc_perun_apache_sites_enabled
+    - name: "add files"
+      set_fact:
+        etc_perun_apache_sites_enabled_secret_data: "{{ etc_perun_apache_sites_enabled_secret_data | default({}) | combine({ (item.path | relpath(chart_path+'/files/sites-enabled/') | replace('/', '__')): (lookup('ansible.builtin.unvault',item.path) | b64encode) }) }}"
+      loop: "{{ etc_perun_apache_sites_enabled.files }}"
+      loop_control:
+        label: "{{ item.path }}"
+    - name: "prepare mount items"
+      set_fact:
+        etc_perun_apache_sites_enabled_secret_volume_items: "{{ etc_perun_apache_sites_enabled_volume_items | default([]) + [{ 'key': item, 'path': (item| replace('__', '/')) }] }}"
+      loop: "{{ etc_perun_apache_sites_enabled_secret_data.keys()}}"
+
+- name: "prepare /etc/perun/apache/shibboleth secret data"
+  block:
+    - name: "find files"
+      find:
+        paths: "{{ chart_path }}/files/shibboleth"
+        recurse: yes
+        file_type: file
+      register: etc_perun_apache_shibboleth
+    - name: "add files"
+      set_fact:
+        etc_perun_apache_shibboleth_secret_data: "{{ etc_perun_apache_shibboleth_secret_data | default({}) | combine({ (item.path | relpath(chart_path+'/files/shibboleth/') | replace('/', '__')): (lookup('ansible.builtin.unvault',item.path) | b64encode) }) }}"
+      loop: "{{ etc_perun_apache_shibboleth.files }}"
+      loop_control:
+        label: "{{ item.path }}"
+    - name: "prepare mount items"
+      set_fact:
+        etc_perun_apache_shibboleth_secret_volume_items: "{{ etc_perun_apache_shibboleth_volume_items | default([]) + [{ 'key': item, 'path': (item| replace('__', '/')) }] }}"
+      loop: "{{ etc_perun_apache_shibboleth_secret_data.keys()}}"
+
+
+- name: "prepare /etc/perun/apache/maintenance secret data"
+  block:
+    - name: "find files"
+      find:
+        paths: "{{ chart_path }}/files/maintenance"
+        recurse: yes
+        file_type: file
+      register: etc_perun_apache_maintenance
+
+    - name: "loop files"
+      loop: "{{ etc_perun_apache_maintenance.files }}"
+      loop_control:
+        label: "{{ item.path }}"
+        index_var: idx
+      vars:
+        file_content: "{{ lookup('ansible.builtin.unvault',item.path) | b64encode }}"
+        file_name: "{{ item.path | relpath(chart_path+'/files/maintenance/') }}"
+      ansible.builtin.template:
+        src: "templates/charts/{{ chart_name }}/perun-apache-secret-etc-perun-apache-maintenance.yaml.j2"
+        dest: "{{ chart_path }}/templates/perun-apache-secret-etc-perun-apache-maintenance-{{ idx }}.yaml"
+
+- name: "clean files"
+  file:
+    path: "{{ chart_path }}/files"
+    state: absent
+
+# TODO maintenance je moc velké
 - name: "generate YAML files in {{ chart_path}} }}/templates/ directory"
   loop:
+    - perun-apache-secret-etc-perun-apache.yaml
+    - perun-apache-secret-etc-perun-apache-img.yaml
+    - perun-apache-secret-etc-perun-apache-shibboleth.yaml
+    - perun-apache-secret-etc-perun-apache-sites-enabled.yaml
     - perun-apache-service.yaml
     - perun-apache-deployment.yaml
   ansible.builtin.template:
@@ -43,5 +418,5 @@
     release_name: perun-apache
     release_state: present
     wait: true
-    wait_timeout: 300s
+    wait_timeout: 1200s
     atomic: yes
