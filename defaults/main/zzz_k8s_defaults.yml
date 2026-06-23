@@ -16,7 +16,10 @@ perun_rpc_k8s_empty_webapps_dir: false
 
 # DEFAULT VALUES
 
+# certificates and hostnames
+perun_use_certbot_certificates: true
 perun_certificate_name: "{{ k8s_namespace }}-dyn-cloud-e-infra-cz-tls"
+
 perun_rpc_hostname: "{{ k8s_namespace }}.dyn.cloud.e-infra.cz"
 perun_api_hostname: "api.{{ k8s_namespace }}.dyn.cloud.e-infra.cz"
 perun_ngui_admin_hostname: "admin.{{ k8s_namespace }}.dyn.cloud.e-infra.cz"

@@ -1,12 +1,99 @@
-- name: "create Certificate k8s object"
-  kubernetes.core.k8s:
-    state: present
-    context: "{{ k8s_context }}"
-    template: Certificate.yaml.j2
-    wait: yes
-    wait_timeout: 240
-    wait_condition:
-      type: Ready
-      status: True
-      reason: Ready
+- name: "collect DNS names"
+  block:
+    - name: "add rpc and its aliases for multicert"
+      set_fact:
+        perun_certbot_alt_hostnames: "{{ perun_certbot_alt_hostnames + [ perun_rpc_hostname ] + perun_rpc_hostname_aliases }}"
 
+    - name: "collect other DNS names for multicert"
+      loop: "{{ other_certs }}"
+      loop_control:
+        loop_var: cert_item
+        label: "{{ cert_item.hostname }}"
+      when: lookup('vars', cert_item.cond)
+      set_fact:
+        perun_certbot_alt_hostnames: "{{ perun_certbot_alt_hostnames + [ lookup('vars', cert_item.hostname) ] + lookup('vars', cert_item.aliases) }}"
+
+    - name: "collected DNS names"
+      debug:
+        var: perun_certbot_alt_hostnames
+
+- name: "use certbot certificates"
+  when: perun_use_certbot_certificates
+  block:
+    - name: "create Certificate k8s object"
+      kubernetes.core.k8s:
+        state: present
+        context: "{{ k8s_context }}"
+        template: Certificate.yaml.j2
+        wait: yes
+        wait_timeout: 240
+        wait_condition:
+          type: Ready
+          status: True
+          reason: Ready
+
+- name: "use issued certificates"
+  when: not perun_use_certbot_certificates
+  vars:
+    # define paths to source certs (default locally in files/{{ perun_instance_hostname }})
+    perun_certs_hostcert_path: "{{ perun_instance_hostname }}/hostcert.pem"
+    perun_certs_hostkey_path: "{{ perun_instance_hostname }}/hostkey.pem"
+    perun_certs_hostchain_path: "{{ perun_instance_hostname }}/hostchain.pem"
+  block:
+    # create Secret with tls.key containing privkey and tls.crt containg fullchain
+    - name: "read cert from file"
+      community.crypto.x509_certificate_info:
+        content: "{{ lookup('ansible.builtin.file', perun_instance_hostname + '/hostcert.pem' ) }}"
+      register: cert
+
+    - name: "read key from file"
+      community.crypto.openssl_privatekey_info:
+        return_private_key_data: true
+        content: "{{ lookup('ansible.builtin.file', perun_instance_hostname + '/hostkey.pem' ) }}"
+      register: privkey
+
+    - name: "read chain from file"
+      community.crypto.x509_certificate_info:
+        content: "{{ lookup('ansible.builtin.file', perun_instance_hostname + '/hostchain.pem' ) }}"
+      register: chain
+
+    - name: "match certificate and private key"
+      assert:
+        that: cert.public_key_fingerprints.md5 == privkey.public_key_fingerprints.md5
+        fail_msg: >-
+          Certificate in files/{{ perun_instance_hostname }}/hostcert.pem
+          and and private key in files/{{ perun_instance_hostname }}/hostkey.pem
+          DO NOT match!
+        success_msg: "cert and private key match"
+
+    - name: "match certificate and chain"
+      assert:
+        that: cert.issuer == chain.subject
+        fail_msg: >-
+          Certificate in files/{{ perun_instance_hostname }}/hostcert.pem
+          and chain in files/{{ perun_instance_hostname }}/hostchain.pem
+          DO NOT match!
+          Certificate issuer is {{ cert.issuer.commonName}} and
+          first subject in chain is {{ chain.subject.commonName }}
+        success_msg: "cert and chain match"
+
+    - debug:
+        var: privkey
+
+    #TODO
+    - name: "prepare data for secret"
+      set_fact:
+        perun_certificate_privkey_b64: "{{ privkey.private_data }}"
+        perun_certificate_fullchain_b64: ""
+
+    - name: "create Secret k8s object"
+      kubernetes.core.k8s:
+        state: present
+        context: "{{ k8s_context }}"
+        template: Secret-TLS.yaml.j2
+        wait: yes
+        wait_timeout: 240
+        wait_condition:
+          type: Ready
+          status: True
+          reason: Ready

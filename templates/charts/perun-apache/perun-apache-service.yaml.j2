@@ -6,7 +6,7 @@ metadata:
   annotations:
     field.cattle.io/description: "the service for targeting Apache TCP ports"
     # https://kubernetes-sigs.github.io/external-dns/latest/docs/annotations/annotations/#external-dnsalphakubernetesiohostname
-    external-dns.alpha.kubernetes.io/hostname: "{{ perun_rpc_hostname }},{{ perun_api_hostname }},{{ perun_ngui_admin_hostname }},{{ perun_ngui_profile_hostname  }},{{ perun_ngui_pwdreset_hostname }},{{ perun_ngui_publications_hostname  }}"
+    external-dns.alpha.kubernetes.io/hostname: "{{ perun_certbot_alt_hostnames | join(',') }}"
 spec:
   type: LoadBalancer
   selector:

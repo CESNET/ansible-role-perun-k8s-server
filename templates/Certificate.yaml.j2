@@ -15,19 +15,14 @@ spec:
     encoding: PKCS1
     algorithm: ECDSA
     size: 384
-  additionalOutputFormats:
-    - type: CombinedPEM
   issuerRef:
     group: cert-manager.io
     kind: ClusterIssuer
     name: letsencrypt-prod-dns
   dnsNames:
-      - {{ perun_rpc_hostname }}
-      - {{ perun_api_hostname  }}
-      - {{ perun_ngui_admin_hostname }}
-      - {{ perun_ngui_profile_hostname  }}
-      - {{ perun_ngui_pwdreset_hostname }}
-      - {{ perun_ngui_publications_hostname  }}
+      {%- for item in perun_certbot_alt_hostnames +%}
+      - {{ item }}
+      {%- endfor +%}
   usages:
     - digital signature
     - key encipherment

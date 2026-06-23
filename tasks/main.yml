@@ -55,14 +55,26 @@
   tags:
     - perun_gitlab
 
+- name: "prepare vars for perun_config"
+  import_tasks: perun_config.yml
+  tags:
+    - perun_config
+    - perun_rpc
+    - perun_ldapc
+    - perun_apache
+
 - name: "certificates setup"
   ansible.builtin.include_tasks:
     file: perun_certs.yml
     apply:
       tags:
+        - perun_config
         - perun_certs
+        - perun_apache
   tags:
+    - perun_config
     - perun_certs
+    - perun_apache
 
 - name: "Perun RPC setup"
   ansible.builtin.include_tasks:
@@ -130,12 +142,13 @@
 # - OS setup - NTP, monitoring, unattended upgrades, Yubikeys - not needed
 # - users and home dirs - not needed
 # - volumes - /etc/perun and /home/perun - do it in respective pods
+# - certificates - creates Certificate object with all DNS names
+# - perun_rpc
 
 
 #TODO
-# - perun_rpc
+# - perun_apache
 # - configs - computes CORS domains
-# - certificates
 # - firewall
 # - logging and remote logging
 # - sendmail
@@ -146,6 +159,5 @@
 # - perun_auditlogger
 # - perun_ldapc
 # - perun_engine
-# - perun_apache
 # - perun_cli
 
