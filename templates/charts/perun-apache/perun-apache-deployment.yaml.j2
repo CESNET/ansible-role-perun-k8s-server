@@ -98,7 +98,7 @@ spec:
             medium: Memory
         - name: apache-certs
           secret:
-            secretName: {{ perun_certificate_name }}
+            secretName: {{ perun_apache_certificate_name }}
         - name: apache-run
           emptyDir: {}
         - name: apache-log

@@ -6,7 +6,8 @@ metadata:
   annotations:
     field.cattle.io/description: "the service for targeting Apache TCP ports"
     # https://kubernetes-sigs.github.io/external-dns/latest/docs/annotations/annotations/#external-dnsalphakubernetesiohostname
-    external-dns.alpha.kubernetes.io/hostname: "{{ perun_certbot_alt_hostnames | join(',') }}"
+    external-dns.alpha.kubernetes.io/hostname: "{{ perun_apache_service_hostname }}"
+# asi bude lepší terminovat TLS na Ingressu a Apache provozovat jen na portu 80
 spec:
   type: LoadBalancer
   selector:

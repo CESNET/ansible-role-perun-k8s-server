@@ -1,16 +1,16 @@
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: {{ perun_certificate_name }}
+  name: {{ perun_apache_certificate_name }}
   namespace: {{ k8s_namespace }}
   annotations:
-    field.cattle.io/description: "Let's Encrypt ECDSA P-384"
+    field.cattle.io/description: "Renews Let's Encrypt ECDSA P-384 certificate"
 spec:
-  # Secret will contain: tls-combined.pem, tls.crt, tls.key
-  secretName: {{ perun_certificate_name }}
+  # Secret will contain: tls.crt, tls.key
+  secretName: {{ perun_apache_certificate_name }}
   secretTemplate:
     annotations:
-      field.cattle.io/description: "TLS certificate and private key"
+      field.cattle.io/description: "TLS certificate and private key for Perun Apache"
   privateKey:
     encoding: PKCS1
     algorithm: ECDSA
@@ -18,7 +18,7 @@ spec:
   issuerRef:
     group: cert-manager.io
     kind: ClusterIssuer
-    name: letsencrypt-prod-dns
+    name: letsencrypt-gateway
   dnsNames:
       {%- for item in perun_certbot_alt_hostnames +%}
       - {{ item }}
