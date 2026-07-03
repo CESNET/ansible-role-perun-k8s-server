@@ -36,23 +36,23 @@
   when: not perun_use_certbot_certificates
   vars:
     # define paths to source certs (default locally in files/{{ perun_instance_hostname }})
-    perun_certs_hostcert_path: "{{ perun_instance_hostname }}/hostcert.pem"
     perun_certs_hostkey_path: "{{ perun_instance_hostname }}/hostkey.pem"
+    perun_certs_hostcert_path: "{{ perun_instance_hostname }}/hostcert.pem"
     perun_certs_hostchain_path: "{{ perun_instance_hostname }}/hostchain.pem"
+    perun_certs_hostfullchain_path: "{{ perun_instance_hostname }}/hostfullchain.pem"
   block:
     # create Secret with tls.key containing privkey and tls.crt containg fullchain
-    - name: "read cert from file"
+    - name: "read cert metadata from file"
       community.crypto.x509_certificate_info:
         content: "{{ lookup('ansible.builtin.file', perun_instance_hostname + '/hostcert.pem' ) }}"
       register: cert
 
-    - name: "read key from file"
+    - name: "read key metadata from file"
       community.crypto.openssl_privatekey_info:
-        return_private_key_data: true
         content: "{{ lookup('ansible.builtin.file', perun_instance_hostname + '/hostkey.pem' ) }}"
       register: privkey
 
-    - name: "read chain from file"
+    - name: "read chain metadata from file"
       community.crypto.x509_certificate_info:
         content: "{{ lookup('ansible.builtin.file', perun_instance_hostname + '/hostchain.pem' ) }}"
       register: chain
@@ -77,23 +77,13 @@
           first subject in chain is {{ chain.subject.commonName }}
         success_msg: "cert and chain match"
 
-    - debug:
-        var: privkey
-
-    #TODO
-    - name: "prepare data for secret"
+    - name: "load hostkey.pem"
       set_fact:
-        perun_certificate_privkey_b64: "{{ privkey.private_data }}"
-        perun_certificate_fullchain_b64: ""
+        perun_certificate_privkey_b64: "{{ lookup('ansible.builtin.unvault', perun_certs_hostkey_path ) | b64encode }}"
+        perun_certificate_fullchain_b64: "{{ (lookup('ansible.builtin.file', perun_certs_hostcert_path, rstrip=True ) + '\n' + lookup('ansible.builtin.file', perun_certs_hostchain_path, rstrip=False )) | b64encode }}"
 
     - name: "create Secret k8s object"
       kubernetes.core.k8s:
         state: present
         context: "{{ k8s_context }}"
-        template: Secret-TLS.yaml.j2
-        wait: yes
-        wait_timeout: 240
-        wait_condition:
-          type: Ready
-          status: True
-          reason: Ready
+        template: Secret-apache-tls-cert.yaml.j2

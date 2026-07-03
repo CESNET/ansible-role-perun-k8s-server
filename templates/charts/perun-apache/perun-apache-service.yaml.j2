@@ -7,7 +7,8 @@ metadata:
     field.cattle.io/description: "the service for targeting Apache TCP ports"
     # https://kubernetes-sigs.github.io/external-dns/latest/docs/annotations/annotations/#external-dnsalphakubernetesiohostname
     external-dns.alpha.kubernetes.io/hostname: "{{ perun_apache_service_hostname }}"
-# asi bude lepší terminovat TLS na Ingressu a Apache provozovat jen na portu 80
+    # allocate external IP
+    metallb.io/address-pool: default
 spec:
   type: LoadBalancer
   selector:
@@ -16,8 +17,8 @@ spec:
     - name: http
       protocol: TCP
       port: 80
-      targetPort: 8080
+      targetPort: 80
     - name: https
       protocol: TCP
       port: 443
-      targetPort: 8443
+      targetPort: 443

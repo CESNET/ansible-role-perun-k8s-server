@@ -18,7 +18,7 @@ perun_rpc_k8s_empty_webapps_dir: false
 
 # certificates and hostnames
 perun_use_certbot_certificates: true
-perun_apache_certificate_name: "{{ k8s_namespace }}-perun-apache-tls-cert"
+perun_apache_certificate_name: "perun-apache-tls-cert"
 perun_apache_service_hostname: "apache.{{ k8s_namespace }}.dyn.cloud.e-infra.cz"
 perun_rpc_hostname: "rpc.{{ k8s_namespace }}.dyn.cloud.e-infra.cz"
 perun_api_hostname: "api.{{ k8s_namespace }}.dyn.cloud.e-infra.cz"

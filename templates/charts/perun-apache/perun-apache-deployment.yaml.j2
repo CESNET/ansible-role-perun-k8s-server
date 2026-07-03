@@ -63,10 +63,10 @@ spec:
               cpu: "{{ perun_apache_limits_cpu }}"
               memory: "{{ perun_apache_limits_mem }}"
           ports:
-            - containerPort: 8080
+            - containerPort: 80
               name: http
               protocol: TCP
-            - containerPort: 8443
+            - containerPort: 443
               name: https
               protocol: TCP
           # mounted volumes

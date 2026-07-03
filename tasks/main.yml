@@ -142,11 +142,10 @@
 # - OS setup - NTP, monitoring, unattended upgrades, Yubikeys - not needed
 # - users and home dirs - not needed
 # - volumes - /etc/perun and /home/perun - do it in respective pods
-# - certificates - creates Certificate object with all DNS names
 # - perun_rpc
 
-
 #TODO
+# - certificates
 # - perun_apache
 # - configs - computes CORS domains
 # - firewall
