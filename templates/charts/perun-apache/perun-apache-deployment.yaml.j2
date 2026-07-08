@@ -85,6 +85,15 @@ spec:
               mountPath: /var/www/html
             - name: etc-perun-apache
               mountPath: /etc/perun/apache
+            # replace CMD point
+            - name: etc-perun-apache
+              mountPath: /opt/perun-apache/perun-apache.sh
+              subPath: perun-apache.sh
+
+            # replace logging conf for Apache
+            - name: etc-perun-apache
+              mountPath: /etc/apache2/conf-enabled/log.conf
+              subPath: log.conf
             - name: etc-perun-apache-img
               mountPath: /etc/perun/apache/img
             - name: etc-perun-apache-maintenance
@@ -92,8 +101,14 @@ spec:
             - name: tmpfs
               mountPath: /tmp
               readOnly: false
+            - name: run-shib
+              mountPath: /run/shibboleth
+              readOnly: false
       volumes:
         - name: tmpfs
+          emptyDir:
+            medium: Memory
+        - name: run-shib
           emptyDir:
             medium: Memory
         - name: apache-certs
@@ -108,6 +123,7 @@ spec:
         - name: etc-perun-apache
           secret:
             secretName: "perun-apache-secret-etc-perun-apache"
+            defaultMode: 0755
             items:
               {{ etc_perun_apache_secret_volume_items | to_nice_yaml(indent=2) | indent(14) }}
         - name: etc-perun-apache-img
@@ -127,6 +143,16 @@ spec:
               mountPath: /src-dir
             - name: etc-perun-apache-maintenance
               mountPath: /dest-dir
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ "ALL" ]
+        - name: shibboleth-dirs
+          image: busybox
+          command: [ 'sh', '-c', 'mkdir /var/log/apache2/shibboleth ; mkdir /var/log/apache2/shibboleth_cache' ]
+          volumeMounts:
+            - name: apache-log
+              mountPath: /var/log/apache2
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

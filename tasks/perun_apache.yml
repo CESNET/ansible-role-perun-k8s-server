@@ -286,6 +286,28 @@
         dest: "{{ chart_path }}/files/apache/apache_init.sh"
         src: "{{ apache_init.stat.path }}"
 
+    - name: "create replacement perun-apache.sh script for launching Shibboleth and Apache in Kubernetes"
+      copy:
+        dest: "{{ chart_path }}/files/apache/perun-apache.sh"
+        content: |
+          #!/bin/bash
+
+          if [ -f /etc/perun/apache/apache_init.sh ] ; then
+            source /etc/perun/apache/apache_init.sh
+          fi
+
+          /usr/sbin/shibd -f -c /etc/shibboleth/shibboleth2.xml -p /run/shibboleth/shibd.pid -w 30
+
+          source /etc/apache2/envvars
+          exec /usr/sbin/apache2 -DFOREGROUND
+
+    - name: "create replacement log.conf for logging in Kubernetes"
+      copy:
+        dest: "{{ chart_path }}/files/apache/log.conf"
+        content: |
+          ErrorLog   "/dev/stderr"
+          CustomLog  "/dev/stdout"  vhost_combined
+
 # kubernetes has some limit on object size, probably 1.5 MB, and Helm stores everything twice
 # we must not exceed the limit with images and maintenance pages
 - name: "prepare /etc/perun/apache secret data"
