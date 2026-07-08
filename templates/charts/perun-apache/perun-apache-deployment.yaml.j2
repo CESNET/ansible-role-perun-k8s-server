@@ -17,6 +17,7 @@ spec:
       annotations:
         field.cattle.io/description: "a perun-apache pod"
         kubectl.kubernetes.io/default-container: "perun-apache-container"
+        checksum/config: "{{ perun_apache_cert_checksum }}"
       labels:
         app: perun-apache
     spec:

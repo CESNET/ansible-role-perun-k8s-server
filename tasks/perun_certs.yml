@@ -28,6 +28,9 @@
         kind: Secret
         name: "{{ perun_apache_certificate_name }}"
       register: apache_tls_secret
+    - name: "compute checksum for certificate"
+      set_fact:
+        perun_apache_cert_checksum: "{{ apache_tls_secret.resources[0].data['tls.crt']|checksum }}"
     - name: "load cert and key"
       when: apache_tls_secret.resources | length <= 0
       set_fact:
