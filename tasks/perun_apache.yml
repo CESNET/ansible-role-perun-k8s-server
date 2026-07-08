@@ -308,6 +308,14 @@
           ErrorLog   "/dev/stderr"
           CustomLog  "/dev/stdout"  vhost_combined
 
+    - name: "create acme.conf for proxying ACME protocol"
+      copy:
+        dest: "{{ chart_path }}/files/apache/acme.conf"
+        content: |
+          ProxyPreserveHost On
+          ProxyPass        "/.well-known/acme-challenge/" "http://rke2-traefik.kube-system.svc.cluster.local/.well-known/acme-challenge/"
+          ProxyPassReverse "/.well-known/acme-challenge/" "http://rke2-traefik.kube-system.svc.cluster.local/.well-known/acme-challenge/"
+
 # kubernetes has some limit on object size, probably 1.5 MB, and Helm stores everything twice
 # we must not exceed the limit with images and maintenance pages
 - name: "prepare /etc/perun/apache secret data"
@@ -364,7 +372,7 @@
       set_fact:
         etc_perun_apache_secret_volume_items: "{{ etc_perun_apache_secret_volume_items | default([]) + [{ 'key': 'maintenance.tar.xz', 'path': 'maintenance.tar.xz' }] }}"
 
-- name: "generate YAML files in {{ chart_path}} }}/templates/ directory"
+- name: "generate YAML files in {{ chart_path}}/templates/ directory"
   loop:
     - perun-apache-secret-etc-perun-apache.yaml
     - perun-apache-secret-etc-perun-apache-img.yaml

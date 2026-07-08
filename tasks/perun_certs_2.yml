@@ -1,0 +1,9 @@
+- name: "use certbot certificates - after Apache"
+  when: perun_use_certbot_certificates
+  block:
+    - name: "create Certificate k8s object"
+      kubernetes.core.k8s:
+        state: present
+        context: "{{ k8s_context }}"
+        template: Certificate.yaml.j2
+

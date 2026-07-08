@@ -20,17 +20,25 @@
 - name: "use certbot certificates"
   when: perun_use_certbot_certificates
   block:
-    - name: "create Certificate k8s object"
+    - name: "detect certificate secret existence"
+      kubernetes.core.k8s_info:
+        namespace: "{{ k8s_namespace }}"
+        context: "{{ k8s_context }}"
+        api_version: v1
+        kind: Secret
+        name: "{{ perun_apache_certificate_name }}"
+      register: apache_tls_secret
+    - name: "load cert and key"
+      when: apache_tls_secret.resources | length <= 0
+      set_fact:
+        perun_certificate_privkey_b64: "{{ lookup('ansible.builtin.file', 'files/ec_key.pem' ) | b64encode }}"
+        perun_certificate_fullchain_b64: "{{ lookup('ansible.builtin.file', 'files/ec_cert.pem' ) | b64encode }}"
+    - name: "create dummy Secret k8s object"
+      when: apache_tls_secret.resources | length <= 0
       kubernetes.core.k8s:
         state: present
         context: "{{ k8s_context }}"
-        template: Certificate.yaml.j2
-        wait: yes
-        wait_timeout: 240
-        wait_condition:
-          type: Ready
-          status: True
-          reason: Ready
+        template: Secret-apache-tls-cert.yaml.j2
 
 - name: "use issued certificates"
   when: not perun_use_certbot_certificates

@@ -98,6 +98,19 @@
     - perun_apache
     - perun_config
 
+- name: "certificates setup 2"
+  ansible.builtin.include_tasks:
+    file: perun_certs_2.yml
+    apply:
+      tags:
+        - perun_config
+        - perun_certs
+        - perun_apache
+  tags:
+    - perun_config
+    - perun_certs
+    - perun_apache
+
 - name: "print shell commands"
   tags:
     - perun_shells
