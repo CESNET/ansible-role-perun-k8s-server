@@ -50,7 +50,6 @@
     perun_certs_hostkey_path: "{{ perun_instance_hostname }}/hostkey.pem"
     perun_certs_hostcert_path: "{{ perun_instance_hostname }}/hostcert.pem"
     perun_certs_hostchain_path: "{{ perun_instance_hostname }}/hostchain.pem"
-    perun_certs_hostfullchain_path: "{{ perun_instance_hostname }}/hostfullchain.pem"
   block:
     # create Secret with tls.key containing privkey and tls.crt containg fullchain
     - name: "read cert metadata from file"

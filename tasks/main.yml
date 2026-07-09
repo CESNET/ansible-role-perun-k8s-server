@@ -143,11 +143,11 @@
 # - users and home dirs - not needed
 # - volumes - /etc/perun and /home/perun - do it in respective pods
 # - perun_rpc
-
-#TODO
+# - configs - computes CORS domains
 # - certificates
 # - perun_apache
-# - configs - computes CORS domains
+
+#TODO
 # - firewall
 # - logging and remote logging
 # - sendmail
